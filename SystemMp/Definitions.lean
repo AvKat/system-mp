@@ -1,4 +1,4 @@
-import SystemMP.Basic
+import SystemMp.Assoc
 
 namespace SystemMP
 
@@ -185,25 +185,23 @@ inductive Expr : Exp -> Prop
   | expr_vpair : ∀ x y : Atom, Expr ⟨x, y⟩
   | expr_tpair : ∀ x : Atom, ∀ T : Typ, TType T → Expr (t⟨x, T⟩)
 
--- Defining Environments
+-- Defining Environments using Assoc.lean
 inductive binding : Type
   | bind_val : Typ → binding
   | bind_typ : Typ → binding
+deriving BEq, DecidableEq, Repr
 open binding
 
+open SystemMP.Assoc
+def Env := List (@Pair binding)
+
 -- Well-formedness and subtyping
-
-notation "Env" => List (Atom × binding)
-
--- TODO: Define a separate module for generic functions for List (Atom × _)
-def dom (Γ : Env) : List Atom := Γ.map Prod.fst
-
 mutual
 
 -- NOTE: Might have to add Wf_Path Γ p as a premise to most cases
 inductive Wf_Path : Env → Pth → Prop
-  | W_var : ∀ Γ (x : Atom) T,
-      (x, bind_val T) ∈ Γ →
+  | W_var : ∀ (Γ : Env) (x : Atom) T,
+      Γ.contains (x, bind_val T) →
       Wf_Path Γ x
   | W_fst : ∀ Γ (p : Pth),
       Sub Γ p (typ_vpair _ _) →
@@ -225,19 +223,19 @@ inductive Wf_Typ : Env → Typ → Prop
       Wf_Path Γ p →
       Sub Γ p (typ_path _) →
       Wf_Typ Γ (typ_path_Snd p)
-  | W_fun : ∀ Γ (S T : Typ),
+  | W_fun : ∀ Γ x (S T : Typ),
       Wf_Typ Γ S →
       Wf_Typ ((x, bind_val S) :: Γ) T →
       Wf_Typ Γ (∀(S) T)
-  | W_tfun : ∀ Γ (S T : Typ),
+  | W_tfun : ∀ Γ X (S T : Typ),
       Wf_Typ Γ S →
       Wf_Typ ((X, bind_typ S) :: Γ) T →
       Wf_Typ Γ (∀[S] T)
-  | W_pair : ∀ Γ (S T : Typ),
+  | W_pair : ∀ Γ x (S T : Typ),
       Wf_Typ Γ S →
       Wf_Typ ((x, bind_val S) :: Γ) T →
       Wf_Typ Γ (∃(S) T)
-  | W_tpair : ∀ Γ (S T : Typ),
+  | W_tpair : ∀ Γ X (S T : Typ),
       Wf_Typ Γ S →
       Wf_Typ ((X, bind_typ S) :: Γ) T →
       Wf_Typ Γ (∃[S] T)
@@ -275,11 +273,11 @@ inductive Sub : Env -> Typ → Typ → Prop
       Sub Γ q p
   | S_var : ∀ Γ x T,
       Wf_Env Γ →
-      (x, bind_val T) ∈ Γ →
+      Γ.contains (x, bind_val T) →
       Sub Γ x T
   | S_tvar : ∀ Γ X T,
       Wf_Env Γ →
-      (X, bind_typ T) ∈ Γ →
+      Γ.contains (X, bind_typ T) →
       Sub Γ (typ_var X) T
   | S_fst : ∀ Γ (p : Pth) S T,
       Sub Γ p (typ_vpair S T) →
