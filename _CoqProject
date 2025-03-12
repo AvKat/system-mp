@@ -1,0 +1,15 @@
+-R . SystemMP
+Meta/AssocList.v
+Meta/CoqEqDec.v
+Meta/CoqFSetDecide.v
+Meta/CoqFSetInterface.v
+Meta/CoqListFacts.v
+Meta/CoqUniquenessTac.v
+Meta/CoqUniquenessTacEx.v
+Meta/FSetExtra.v
+Meta/FSetWeakNotin.v
+Meta/LibDefaultSimp.v
+Meta/LibLNgen.v
+Meta/LibTactics.v
+Meta/Metatheory.v
+Meta/MetatheoryAtom.v
