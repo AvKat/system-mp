@@ -13,3 +13,6 @@ Meta/LibLNgen.v
 Meta/LibTactics.v
 Meta/Metatheory.v
 Meta/MetatheoryAtom.v
+CpdtTactics.v
+Project/Definitions.v
+Project/Infrastructure.v
