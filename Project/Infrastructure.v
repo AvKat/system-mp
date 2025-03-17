@@ -1,8 +1,7 @@
-Require Import SystemMP.Project.Definitions.
+Require Export SystemMP.Project.Definitions.
 Require Import Coq.Program.Equality.
-Require Import CpdtTactics.
-Require Import Coq.Program.Wf.
-Require Import Coq.Lists.List.
+Require Export CpdtTactics.
+Require Export Coq.Lists.List.
 Import ListNotations.
 
 Lemma wf_env_uniq : forall E,
@@ -77,7 +76,7 @@ Hint Extern 1 (binds ?x ?b (?E ++ ?z :: ?F)) =>
   : core.
 
 (* ------------------------------ Lemma 2.1, 2.4, 2.6 ------------------------------ *)
-Lemma wf_weaken_val_aux : 
+Lemma wf_weaken_val_aux :
   (forall E_,
     wf_env E_ ->
     forall E F z S,
@@ -100,7 +99,7 @@ Lemma wf_weaken_val_aux :
       wf_typ F S ->
       sub (E ++ (z, bind_val S) :: F) T U).
 Proof with eauto 5.
-  apply wf_ind; intros; subst...
+  apply wf_env_typ_sub_ind; intros; subst...
 
   (* ------------- wf_env ------------- *)
 
@@ -191,7 +190,7 @@ Lemma wf_weaken_typ_aux :
       wf_typ F S ->
       sub (E ++ (z, bind_typ S) :: F) T U).
 Proof with eauto 5.
-  apply wf_ind; intros; subst...
+  apply wf_env_typ_sub_ind; intros; subst...
 
   (* ------------- wf_env ------------- *)
 

@@ -316,9 +316,14 @@ Inductive typing : env -> exp -> typ -> Prop :=
 
 Hint Constructors path type expr wf_typ wf_env sub typing : core.
 
-Scheme wf_env_mutind := Induction for wf_env Sort Prop
-  with wf_typ_mutind := Induction for wf_typ Sort Prop
+Scheme wf_env_all_mutind := Induction for wf_env Sort Prop
+  with wf_typ_all_mutind := Induction for wf_typ Sort Prop
+  with sub_all_mutind := Induction for sub Sort Prop.
+
+Combined Scheme wf_env_typ_sub_ind from wf_env_all_mutind, wf_typ_all_mutind, sub_all_mutind.
+
+Scheme wf_typ_mutind := Induction for wf_typ Sort Prop
   with sub_mutind := Induction for sub Sort Prop.
 
-Combined Scheme wf_ind from wf_env_mutind, wf_typ_mutind, sub_mutind.
+Combined Scheme wf_typ_sub_ind from wf_typ_mutind, sub_mutind.
 
