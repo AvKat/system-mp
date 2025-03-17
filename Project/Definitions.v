@@ -315,3 +315,10 @@ Inductive typing : env -> exp -> typ -> Prop :=
       typing E (exp_let e1 e2) T.
 
 Hint Constructors path type expr wf_typ wf_env sub typing : core.
+
+Scheme wf_env_mutind := Induction for wf_env Sort Prop
+  with wf_typ_mutind := Induction for wf_typ Sort Prop
+  with sub_mutind := Induction for sub Sort Prop.
+
+Combined Scheme wf_ind from wf_env_mutind, wf_typ_mutind, sub_mutind.
+

@@ -47,159 +47,215 @@ Qed.
 
 (* NOTE: Lemma 1.2 is a runtime lemma that is tentatively skipped  *)
 
-(* Lemma 2.1, 2.4, 2.6 *)
+Lemma app_nil_means_nil : forall A (l1 l2 : list A),
+  l1 ++ l2 = nil ->
+  l1 = nil /\ l2 = nil.
+Proof with eauto.
+  intros. induction l1; induction l2; simpl in *; eauto;
+  inversion H.
+Qed.
+
+Lemma split_cons : forall A (x : A) l1 l2 l3,
+  x :: l1 = l2 ++ l3 ->
+  (l2 = nil /\ l3 = x :: l1) \/
+  (exists l4, l2 = x :: l4 /\ l1 = l4 ++ l3).
+Proof with eauto.
+  intros. induction l2; simpl in *.
+  - left...
+  - inversion H; subst.
+    right. exists l2...
+Qed.
+
+Hint Extern 1 =>
+  match goal with
+  | H : _ ++ _ = nil |- _ => apply app_nil_means_nil in H; destruct H; subst
+  | H : nil = _ ++ _ |- _ => symmetry in H; apply app_nil_means_nil in H; destruct H; subst
+  end : core.
+
+Hint Extern 1 (binds ?x ?b (?E ++ ?z :: ?F)) =>
+  rewrite_alist (E ++ [z] ++ F); apply binds_weaken
+  : core.
+
+(* ------------------------------ Lemma 2.1, 2.4, 2.6 ------------------------------ *)
+Lemma wf_weaken_val_aux : 
+  (forall E_,
+    wf_env E_ ->
+    forall E F z S,
+      E_ = E ++ F ->
+      z `notin` dom E `union` dom F ->
+      wf_typ F S ->
+      wf_env (E ++ (z, bind_val S) :: F)) /\
+  (forall E_ T,
+    wf_typ E_ T ->
+    forall E F z S,
+      E_ = E ++ F ->
+      z `notin` dom E `union` dom F ->
+      wf_typ F S ->
+      wf_typ (E ++ (z, bind_val S) :: F) T) /\
+  (forall E_ T U,
+    sub E_ T U ->
+    forall E F z S,
+      E_ = E ++ F ->
+      z `notin` dom E `union` dom F ->
+      wf_typ F S ->
+      sub (E ++ (z, bind_val S) :: F) T U).
+Proof with eauto 5.
+  apply wf_ind; intros; subst...
+
+  (* ------------- wf_env ------------- *)
+
+  (* Case w_nil *)
+  symmetry in H. apply app_nil_means_nil in H.
+  destruct H. simpl in *. subst...
+  rewrite app_nil_1...
+  (* Case w_val, w_typ *)
+  1,2: destruct (split_cons _ _ _ _ _ H1);
+  [ destruct H4; subst; eauto; rewrite app_nil_1; eauto |
+    destruct H4 as [E' [? ?]]; subst; inversion H1; subst ].
+  rewrite_alist ((x, bind_val T) :: E' ++ (z, bind_val S) :: F)...
+  rewrite_alist ((X, bind_typ T) :: E' ++ (z, bind_val S) :: F)...
+
+  (* ------------- wf_typ ------------- *)
+
+  (* Case w_var, w_tvar, w_fst, w_tfst, w_snd, w_tsnd, w_top, w_top handled by automation *)
+  (* Case w_fun, w_pair, w_tpair *)
+  1: pick fresh x and apply w_fun...
+  3: pick fresh x and apply w_pair...
+  4: pick fresh x and apply w_tpair...
+  1,3,4: apply H0 with (E := (x, bind_val S) :: E0)...
+  (* Case w_tfun *)
+  pick fresh X and apply w_tfun...
+  apply H0 with (E := (X, bind_typ S) :: E0)...
+
+  (* ------------- sub ------------- *)
+
+  (* Case sub_refl, sub_trans, sub_symm, sub_var, sub_tvar, sub_fst, sub_tfst, sub_snd, sub_tsnd, sub_top, sub_bot all handled by automation *)
+  1: pick fresh x and apply sub_fun...
+  3: pick fresh x and apply sub_pair...
+  4: pick fresh x and apply sub_tpair...
+  1,3,4: apply H0 with (E := (x, bind_val S2) :: E0)...
+  (* Case sub_fun *)
+  pick fresh X and apply sub_tfun...
+  apply H0 with (E := (X, bind_typ S2) :: E0)...
+Qed.
+
 Theorem wf_env_weaken_val : forall E F z S,
   wf_env (E ++ F) ->
   z `notin` dom E `union` dom F ->
   wf_typ F S ->
-  wf_env (E ++ (z, bind_val S) :: F)
-with wf_typ_weaken_val : forall E F z S T,
+  wf_env (E ++ (z, bind_val S) :: F).
+Proof.
+  intros. apply wf_weaken_val_aux with (E_ := E ++ F); auto.
+Qed.
+
+Theorem wf_typ_weaken_val : forall E F z S T,
   wf_typ (E ++ F) T ->
   wf_typ F S ->
   z `notin` dom E `union` dom F ->
-  wf_typ (E ++ (z, bind_val S) :: F) T
-with sub_weaken_val : forall E F z S T U,
+  wf_typ (E ++ (z, bind_val S) :: F) T.
+Proof.
+  intros. apply wf_weaken_val_aux with (E_ := E ++ F); auto.
+Qed.
+
+Theorem sub_weaken_val : forall E F z S T U,
   sub (E ++ F) T U ->
   wf_typ F S ->
   z `notin` dom E `union` dom F ->
   sub (E ++ (z, bind_val S) :: F) T U.
-Proof with eauto.
-  {
-    (* Lemma 2.1 *)
-    clear - wf_typ_weaken_val.
-    intros. dependent induction E.
-    - simpl in *. auto.
-    - inversion H; subst; constructor; auto.
-  }
-  {
-    (* Lemma 2.3 *)
-    clear - wf_env_weaken_val sub_weaken_val.
-    intros. dependent induction H.
-    (* Case: w_var, w_tvar *)
-    econstructor; eauto; rewrite_alist (E ++ [(z, bind_val S)] ++ F); apply binds_weaken...
-    eapply w_tvar; eauto. rewrite_alist (E ++ [(z, bind_val S)] ++ F); apply binds_weaken...
-    (* Case: w_fst, w_tfst, w_snd, w_tsnd *)
-    1-4: econstructor; eauto; rewrite_alist (E ++ [(z, bind_val S)] ++ F); apply binds_weaken...
-    (* Case: w_top, w_bot *)
-    1-2: constructor; apply wf_env_weaken_val; auto.
-    (* Case: w_fun, w_tfun, w_vpair, w_tpair *)
-    - pick fresh x and apply w_fun...
-      apply (H1 x ltac:(fsetdec) ((x, bind_val S0) :: E))...
-    - pick fresh X and apply w_tfun...
-      eapply (H1 X ltac:(fsetdec) ((X, bind_typ S0) :: E))...
-    - pick fresh x and apply w_pair...
-      eapply (H1 x ltac:(fsetdec) ((x, bind_val S0) :: E))...
-    - pick fresh x and apply w_tpair...
-      eapply (H1 x ltac:(fsetdec) ((x, bind_val S0) :: E))...
-  }
-  {
-    (* Lemma 2.6 *)
-    clear - wf_env_weaken_val wf_typ_weaken_val.
-    intros. dependent induction H.
-    (* Case: sub_refl, sub_symm *)
-    1,3: constructor...
-    (* Case: sub_trans *)
-    apply sub_trans with (T := T)...
-    (* Case: sub_var *)
-    constructor...
-    rewrite_alist (E ++ [(z, bind_val S)] ++ F)...
-    (* Case: sub_tvar *)
-    apply sub_tvar...
-    rewrite_alist (E ++ [(z, bind_val S)] ++ F)...
-    (* Case: sub_fst, sub_tfst, sub_snd, sub_tsnd *)
-    1-4: specialize (IHsub E F ltac:(auto) H0)...
-    (* Case: sub_top, sub_bot *)
-    1-2: constructor...
-    (* Case: sub_fun *)
-    - pick fresh x and apply sub_fun...
-      apply (H1 x ltac:(fsetdec) ((x, bind_val S2) :: E))...
-    - pick fresh X and apply sub_tfun...
-      eapply (H1 X ltac:(fsetdec) ((X, bind_typ S2) :: E))...
-    - pick fresh x and apply sub_pair...
-      eapply (H1 x ltac:(fsetdec) ((x, bind_val S2) :: E))...
-    - pick fresh x and apply sub_tpair...
-      eapply (H1 x ltac:(fsetdec) ((x, bind_val S2) :: E))...
-  }
-  Admitted.
+Proof.
+  intros. apply wf_weaken_val_aux with (E_ := E ++ F); auto.
+Qed.
 
-(* Lemma 2.2, 2.4, 2.7 *)
-Lemma wf_env_weaken_typ : forall E F Z S,
+(* ------------------------------ Lemma 2.2, 2.5, 2.7 ------------------------------ *)
+
+Lemma wf_weaken_typ_aux :
+  (forall E_,
+    wf_env E_ ->
+    forall E F z S,
+      E_ = E ++ F ->
+      z `notin` dom E `union` dom F ->
+      wf_typ F S ->
+      wf_env (E ++ (z, bind_typ S) :: F)) /\
+  (forall E_ T,
+    wf_typ E_ T ->
+    forall E F z S,
+      E_ = E ++ F ->
+      z `notin` dom E `union` dom F ->
+      wf_typ F S ->
+      wf_typ (E ++ (z, bind_typ S) :: F) T) /\
+  (forall E_ T U,
+    sub E_ T U ->
+    forall E F z S,
+      E_ = E ++ F ->
+      z `notin` dom E `union` dom F ->
+      wf_typ F S ->
+      sub (E ++ (z, bind_typ S) :: F) T U).
+Proof with eauto 5.
+  apply wf_ind; intros; subst...
+
+  (* ------------- wf_env ------------- *)
+
+  (* Case w_nil *)
+  symmetry in H. apply app_nil_means_nil in H.
+  destruct H. simpl in *. subst...
+  rewrite app_nil_1...
+  (* Case w_val, w_typ *)
+  1,2: destruct (split_cons _ _ _ _ _ H1);
+  [ destruct H4; subst; eauto; rewrite app_nil_1; eauto |
+    destruct H4 as [E' [? ?]]; subst; inversion H1; subst ].
+  rewrite_alist ((x, bind_val T) :: E' ++ (z, bind_typ S) :: F)...
+  rewrite_alist ((X, bind_typ T) :: E' ++ (z, bind_typ S) :: F)...
+
+  (* ------------- wf_typ ------------- *)
+
+  (* Case w_var, w_tvar, w_fst, w_tfst, w_snd, w_tsnd, w_top, w_top handled by automation *)
+  (* Case w_fun, w_pair, w_tpair *)
+  1: pick fresh x and apply w_fun...
+  3: pick fresh x and apply w_pair...
+  4: pick fresh x and apply w_tpair...
+  1,3,4: apply H0 with (E := (x, bind_val S) :: E0)...
+  (* Case w_tfun *)
+  pick fresh X and apply w_tfun...
+  apply H0 with (E := (X, bind_typ S) :: E0)...
+
+  (* ------------- sub ------------- *)
+
+  (* Case sub_refl, sub_trans, sub_symm, sub_var, sub_tvar, sub_fst, sub_tfst, sub_snd, sub_tsnd, sub_top, sub_bot all handled by automation *)
+  1: pick fresh x and apply sub_fun...
+  3: pick fresh x and apply sub_pair...
+  4: pick fresh x and apply sub_tpair...
+  1,3,4: apply H0 with (E := (x, bind_val S2) :: E0)...
+  (* Case sub_fun *)
+  pick fresh X and apply sub_tfun...
+  apply H0 with (E := (X, bind_typ S2) :: E0)...
+Qed.
+
+Theorem wf_env_weaken_typ : forall E F z S,
   wf_env (E ++ F) ->
-  Z `notin` dom E `union` dom F ->
+  z `notin` dom E `union` dom F ->
   wf_typ F S ->
-  wf_env (E ++ (Z, bind_typ S) :: F)
-with wf_typ_weaken_typ : forall E F Z S T,
+  wf_env (E ++ (z, bind_typ S) :: F).
+Proof.
+  intros. apply wf_weaken_typ_aux with (E_ := E ++ F); auto.
+Qed.
+
+Theorem wf_typ_weaken_typ : forall E F z S T,
   wf_typ (E ++ F) T ->
   wf_typ F S ->
-  Z `notin` dom E `union` dom F ->
-  wf_typ (E ++ (Z, bind_typ S) :: F) T
-with sub_weaken_typ : forall E F Z S T U,
+  z `notin` dom E `union` dom F ->
+  wf_typ (E ++ (z, bind_typ S) :: F) T.
+Proof.
+  intros. apply wf_weaken_typ_aux with (E_ := E ++ F); auto.
+Qed.
+
+Theorem sub_weaken_typ : forall E F z S T U,
   sub (E ++ F) T U ->
   wf_typ F S ->
-  Z `notin` dom E `union` dom F ->
-  sub (E ++ (Z, bind_typ S) :: F) T U.
-Proof with eauto.
-  {
-    (* Lemma 2.2 *)
-    clear - wf_typ_weaken_typ.
-    intros. dependent induction E.
-    - simpl in *; auto.
-    - inversion H; subst; constructor; auto.
-  }
-  {
-    (* Lemma 2.4 *)
-    clear - wf_env_weaken_typ sub_weaken_typ.
-    intros. dependent induction H.
-    (* Case: w_var, w_tvar *)
-     econstructor; eauto;
-     rewrite_alist (E ++ [(Z, bind_typ S)] ++ F);
-     apply binds_weaken...
-     eapply w_tvar; eauto;
-     rewrite_alist (E ++ [(Z, bind_typ S)] ++ F);
-     apply binds_weaken...
-    (* Case: w_fst, w_tfst, w_snd, w_tsnd *)
-    1-4: apply sub_weaken_typ with (Z := Z) (S := S) in H...
-    (* Case: w_top, w_bot *)
-    1-2: constructor; apply wf_env_weaken_typ; auto.
-    (* Case: w_fun, w_vpair, w_tpair *)
-    - pick fresh x and apply w_fun...
-      apply (H1 x ltac:(fsetdec) ((x, bind_val S0) :: E))...
-    - pick fresh X and apply w_tfun...
-      eapply (H1 X ltac:(fsetdec) ((X, bind_typ S0) :: E))...
-    - pick fresh x and apply w_pair...
-      eapply (H1 x ltac:(fsetdec) ((x, bind_val S0) :: E))...
-    - pick fresh x and apply w_tpair...
-      eapply (H1 x ltac:(fsetdec) ((x, bind_val S0) :: E))...
-  }
-  {
-    (* Lemma 2.7 *)
-    clear - wf_env_weaken_typ wf_typ_weaken_typ sub_weaken_typ.
-    intros. dependent induction H.
-    (* Case: sub_refl, sub_symm *)
-    1,3: constructor...
-    (* Case: sub_trans *)
-    apply sub_trans with (T := T)...
-    (* Case: sub_var *)
-    constructor...
-    rewrite_alist (E ++ [(Z, bind_typ S)] ++ F)...
-    (* Case: sub_tvar *)
-    apply sub_tvar...
-    rewrite_alist (E ++ [(Z, bind_typ S)] ++ F)...
-    (* Case: sub_fst, sub_tfst, sub_snd, sub_tsnd *)
-    1-4: specialize (IHsub E F ltac:(auto) H0)...
-    (* Case: sub_top, sub_bot *)
-    1-2: constructor...
-    (* Case: sub_fun *)
-    - pick fresh x and apply sub_fun...
-      apply (H1 x ltac:(fsetdec) ((x, bind_val S2) :: E))...
-    - pick fresh X and apply sub_tfun...
-      eapply (H1 X ltac:(fsetdec) ((X, bind_typ S2) :: E))...
-    - pick fresh x and apply sub_pair...
-      eapply (H1 x ltac:(fsetdec) ((x, bind_val S2) :: E))...
-    - pick fresh x and apply sub_tpair...
-      eapply (H1 x ltac:(fsetdec) ((x, bind_val S2) :: E))...
-  }
-  Admitted.
+  z `notin` dom E `union` dom F ->
+  sub (E ++ (z, bind_typ S) :: F) T U.
+Proof.
+  intros. apply wf_weaken_typ_aux with (E_ := E ++ F); auto.
+Qed.
 
 (* Hints to make applying the above lemmas easier *)
 
