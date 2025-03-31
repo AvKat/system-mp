@@ -4,6 +4,11 @@ Require Export CpdtTactics.
 Require Export Coq.Lists.List.
 Import ListNotations.
 
+Hint Extern 1 =>
+  match goal with
+  | H : binds _ _ nil |- _ => inversion H
+  end : core.
+
 Lemma wf_env_uniq : forall E,
   wf_env E ->
   uniq E.
@@ -65,15 +70,10 @@ Proof with eauto.
     right. exists l2...
 Qed.
 
-Hint Extern 1 =>
+Hint Extern 3 (binds ?x ?b (?E ++ ?z :: ?F)) =>
   match goal with
-  | H : _ ++ _ = nil |- _ => apply app_nil_means_nil in H; destruct H; subst
-  | H : nil = _ ++ _ |- _ => symmetry in H; apply app_nil_means_nil in H; destruct H; subst
+  | H : binds x b (E ++ F) |- _ => rewrite_alist (E ++ [z] ++ F); apply binds_weaken
   end : core.
-
-Hint Extern 1 (binds ?x ?b (?E ++ ?z :: ?F)) =>
-  rewrite_alist (E ++ [z] ++ F); apply binds_weaken
-  : core.
 
 (* ------------------------------ Lemma 2.1, 2.4, 2.6 ------------------------------ *)
 Lemma wf_weaken_val_aux :
@@ -116,7 +116,11 @@ Proof with eauto 5.
 
   (* ------------- wf_typ ------------- *)
 
-  (* Case w_var, w_tvar, w_fst, w_tfst, w_snd, w_tsnd, w_top, w_top handled by automation *)
+  (* Case w_var, w_tvar *)
+  apply w_var with (T := T)...
+  apply w_tvar with (T := T)...
+
+  (* Case w_fst, w_tfst, w_snd, w_tsnd, w_top, w_top handled by automation *)
   (* Case w_fun, w_pair, w_tpair *)
   1: pick fresh x and apply w_fun...
   3: pick fresh x and apply w_pair...
@@ -207,7 +211,11 @@ Proof with eauto 5.
 
   (* ------------- wf_typ ------------- *)
 
-  (* Case w_var, w_tvar, w_fst, w_tfst, w_snd, w_tsnd, w_top, w_top handled by automation *)
+  (* Case w_var, w_tvar *)
+  apply w_var with (T := T)...
+  apply w_tvar with (T := T)...
+
+  (* Case w_fst, w_tfst, w_snd, w_tsnd, w_top, w_top handled by automation *)
   (* Case w_fun, w_pair, w_tpair *)
   1: pick fresh x and apply w_fun...
   3: pick fresh x and apply w_pair...
@@ -258,22 +266,17 @@ Qed.
 
 (* Hints to make applying the above lemmas easier *)
 
-Hint Extern 1 (wf_env ((?x, ?b) :: ?E)) =>
-  rewrite_alist (nil ++ (x, b) :: E); eauto
+Hint Extern 2 (wf_env ((?x, ?b) :: ?E)) =>
+  rewrite_alist (nil ++ (x, b) :: E); eauto 2
   : core.
 
-Hint Extern 1 (wf_typ ((?x, ?b) :: ?E) ?T) =>
-  rewrite_alist (nil ++ (x, b) :: E); eauto
+Hint Extern 2 (wf_typ ((?x, ?b) :: ?E) ?T) =>
+  rewrite_alist (nil ++ (x, b) :: E); eauto 2
   : core.
 
-Hint Extern 1 (sub ((?x, ?b) :: ?E) ?T ?U) =>
-  rewrite_alist (nil ++ (x, b) :: E); eauto
+Hint Extern 2 (sub ((?x, ?b) :: ?E) ?T ?U) =>
+  rewrite_alist (nil ++ (x, b) :: E); eauto 2
   : core.
-
-Hint Extern 1 =>
-  match goal with
-  | H : binds _ _ nil |- _ => inversion H
-  end : core.
 
 (* Lemma 1.3 *)
 Lemma wf_env_binds_val_wf : forall E x T,
@@ -325,7 +328,6 @@ Theorem typing_weaken_val : forall E F e T z S,
   typing (E ++ (z, bind_val S) :: F) e T.
 Proof with eauto using wf_typ_weaken_val, wf_env_weaken_val, sub_weaken_val.
   intros. dependent induction H.
-  (* generalize dependent E. *)
   - constructor...
   - apply t_sub with (S := S0)...
   - pick fresh x and apply t_abs...
@@ -366,8 +368,8 @@ Proof with eauto using wf_typ_weaken_typ, wf_env_weaken_typ, sub_weaken_typ.
     apply (H2 x ltac:(fsetdec) ((x, bind_val S0) :: E))...
 Qed.
 
-Hint Extern 1 (typing ((?x, ?b) :: ?E) ?e ?T) =>
-  rewrite_alist (nil ++ (x, b) :: E); eauto
+Hint Extern 2 (typing ((?x, ?b) :: ?E) ?e ?T) =>
+  rewrite_alist (nil ++ (x, b) :: E); eauto 2
   : core.
 
 (* Lemma 2.11 *)

@@ -42,11 +42,72 @@ Coercion exp_path : pth >-> exp.
 (* Opening functions *)
 (* Convention: open_xy "puts" y in x *)
 
+
+(* Open with a path *)
+
+Fixpoint open_pp_rec (p : pth) (q : pth) (k : nat) : pth :=
+  match p with
+  | pth_var (var_b n) => if n === k then q else p
+  | pth_var (var_f _) => p
+  | pth_proj1 p => pth_proj1 (open_pp_rec p q k)
+  | pth_proj2 p => pth_proj2 (open_pp_rec p q k)
+  end.
+
+Definition open_vp (V : var) (p : pth) (k : nat) : pth :=
+  match V with
+  | var_b n => if n === k then p else V
+  | var_f _ => V
+  end.
+
+Fixpoint open_tp_rec (T : typ) (p : pth) (k : nat) : typ :=
+  match T with
+  | typ_tvar a => open_vp a p k
+  | typ_arr R T => typ_arr (open_tp_rec R p k) (open_tp_rec T p (k+1))
+  | typ_all R T => typ_all (open_tp_rec R p k) (open_tp_rec T p (k+1))
+  | typ_pair R T => typ_pair (open_tp_rec R p k) (open_tp_rec T p (k+1))
+  | typ_tpair R T => typ_tpair (open_tp_rec R p k) (open_tp_rec T p (k+1))
+  | typ_path p' => typ_path (open_pp_rec p' p k)
+  | typ_path_Snd p' => typ_path_Snd (open_pp_rec p' p k)
+  | _ => T
+  end.
+
+(* Open with a type *)
+
 Definition open_vt (V : var) (T : typ) (k : nat) : typ :=
   match V with
   | var_b n => if n === k then T else V
   | var_f _ => V
   end.
+
+(* Definition open_pt (p : pth) (T : typ) (k : nat) : typ := *)
+(*   match p with *)
+(*   | pth_var (var_b n) => p *)
+(*   | pth_var (var_f _) => T *)
+(*   | pth_proj1 p => typ_path (open_pp_rec p (pth_var (var_b k)) 0) *)
+(*   | pth_proj2 p => typ_path_Snd (open_pp_rec p (pth_var (var_b k)) 0) *)
+(*   end. *)
+
+Fixpoint open_tt_rec (T : typ) (U : typ) (k : nat) : typ :=
+  match T with
+  | typ_tvar a => open_vt a U k
+  | typ_arr R T => typ_arr (open_tt_rec R U k) (open_tt_rec T U (k+1))
+  | typ_all R T => typ_all (open_tt_rec R U k) (open_tt_rec T U (k+1))
+  | typ_pair R T => typ_pair (open_tt_rec R U k) (open_tt_rec T U (k+1))
+  | typ_tpair R T => typ_tpair (open_tt_rec R U k) (open_tt_rec T U (k+1))
+  | _ => T
+  end.
+
+(* Fixpoint open_et_rec (E : exp) (U : typ) (k : nat) : exp := *)
+(*   match E with *)
+(*   | exp_tapp p T => exp_tapp p (open_tt_rec T U k) *)
+(*   | exp_abs T t => exp_abs (open_tt_rec T U k) (open_et_rec t U (k+1)) *)
+(*   | exp_tabs T t => exp_tabs (open_tt_rec T U k) (open_et_rec t U (k+1)) *)
+(*   | exp_tpair x T => exp_tpair x (open_tt_rec T U k) *)
+(*   | exp_let x t => exp_let (open_et_rec x U k) (open_et_rec t U (k+1)) *)
+(*   | _ => E *)
+(*   end. *)
+
+(* Open with a variable *)
 
 Fixpoint open_pv (P : pth) (V : var) (k : nat) : pth :=
   match P with
@@ -56,19 +117,6 @@ Fixpoint open_pv (P : pth) (V : var) (k : nat) : pth :=
   | pth_proj2 p => pth_proj2 (open_pv p V k)
   end.
 
-Fixpoint open_tt_rec (T : typ) (U : typ) (k : nat) : typ :=
-  match T with
-  | typ_tvar a => open_vt a U k
-  | typ_top => typ_top
-  | typ_bot => typ_bot
-  | typ_arr R T => typ_arr (open_tt_rec R U k) (open_tt_rec T U (k+1))
-  | typ_all R T => typ_all (open_tt_rec R U k) (open_tt_rec T U (k+1))
-  | typ_path _ => T
-  | typ_path_Snd _ => T
-  | typ_pair R T => typ_pair (open_tt_rec R U k) (open_tt_rec T U k)
-  | typ_tpair R T => typ_tpair (open_tt_rec R U k) (open_tt_rec T U k)
-  end.
-
 Fixpoint open_tv_rec (T : typ) (V : var) (k : nat) : typ :=
   match T with
   | var_b n => if n === k then V else T
@@ -76,6 +124,8 @@ Fixpoint open_tv_rec (T : typ) (V : var) (k : nat) : typ :=
   | typ_all R T => typ_arr (open_tv_rec R V k) (open_tv_rec T V (k+1))
   | typ_pair R T => typ_pair (open_tv_rec R V k) (open_tv_rec T V (k+1))
   | typ_tpair R T => typ_tpair (open_tv_rec R V k) (open_tv_rec T V (k+1))
+  | typ_path p => typ_path (open_pv p V k)
+  | typ_path_Snd p => typ_path_Snd (open_pv p V k)
   | _ => T
   end.
 
@@ -83,27 +133,20 @@ Fixpoint open_ev_rec (E : exp) (V: var) (k : nat) : exp :=
   match E with
   | exp_path p => exp_path (open_pv p V k)
   | exp_app p1 p2 => exp_app (open_pv p1 V k) (open_pv p2 V k)
-  | exp_tapp p T => exp_tapp (open_pv p V k) (open_tt_rec T V k)
-  | exp_abs T t => exp_abs (open_tt_rec T V k) (open_ev_rec t V (k+1))
-  | exp_tabs T t => exp_tabs (open_tt_rec T V k) (open_ev_rec t V (k+1))
+  | exp_tapp p T => exp_tapp (open_pv p V k) (open_tv_rec T V k)
+  | exp_abs T t => exp_abs (open_tv_rec T V k) (open_ev_rec t V (k+1))
+  | exp_tabs T t => exp_tabs (open_tv_rec T V k) (open_ev_rec t V (k+1))
   | exp_let x t => exp_let (open_ev_rec x V k) (open_ev_rec t V (k+1))
   | _ => E
   end.
 
-Fixpoint open_et_rec (E : exp) (U : typ) (k : nat) : exp :=
-  match E with
-  | exp_tapp p T => exp_tapp p (open_tt_rec T U k)
-  | exp_abs T t => exp_abs (open_tt_rec T U k) (open_et_rec t U (k+1))
-  | exp_tabs T t => exp_tabs (open_tt_rec T U k) (open_et_rec t U (k+1))
-  | exp_tpair x T => exp_tpair x (open_tt_rec T U k)
-  | exp_let x t => exp_let (open_et_rec x U k) (open_et_rec t U (k+1))
-  | _ => E
-  end.
 
+Definition open_pp p q := open_pp_rec p q 0.
+Definition open_tp T p := open_tp_rec T p 0.
 Definition open_tt (T : typ) (U : typ) : typ := open_tt_rec T U 0.
 Definition open_tv (T : typ) (V : var) : typ := open_tv_rec T V 0.
 Definition open_ev (E : exp) (V : var) : exp := open_ev_rec E V 0.
-Definition open_et (E : exp) (U : typ) : exp := open_et_rec E U 0.
+(* Definition open_et (E : exp) (U : typ) : exp := open_et_rec E U 0. *)
 
 Inductive path : pth -> Prop :=
   | path_var : forall x, path (pth_var x)
@@ -118,7 +161,7 @@ Inductive type : typ -> Prop :=
       (forall x, x `notin` L -> type (open_tv T2 x)) ->
       type (typ_arr T1 T2)
   | type_all : forall T1 T2 L,
-      (forall X, X `notin` L -> type (open_tt T2 X)) ->
+      (forall X, X `notin` L -> type (open_tv T2 X)) ->
       type (typ_all T1 T2)
   | type_path : forall p, path p -> type p
   | type_path_Snd : forall p, path p -> type (typ_path_Snd p)
@@ -141,7 +184,7 @@ Inductive expr : exp -> Prop :=
       expr (exp_abs T e)
   | expr_tabs : forall T e L,
       type T ->
-      (forall X, X `notin` L -> expr (open_et e X)) ->
+      (forall X, X `notin` L -> expr (open_ev e X)) ->
       expr (exp_tabs T e)
   | expr_vpair : forall x y, expr (exp_pair x y)
   | expr_tpair : forall x T, type T -> expr (exp_tpair x T)
@@ -189,7 +232,7 @@ Inductive wf_typ : env -> typ -> Prop :=
       wf_typ E (typ_arr S T)
   | w_tfun : forall L E S T,
       wf_typ E S ->
-      (forall X, X `notin` L -> wf_typ ((X, bind_typ S) :: E) (open_tt T X)) ->
+      (forall X, X `notin` L -> wf_typ ((X, bind_typ S) :: E) (open_tv T X)) ->
       wf_typ E (typ_all S T)
   | w_pair : forall L E S T,
       wf_typ E S ->
@@ -244,10 +287,10 @@ with sub : env -> typ -> typ -> Prop :=
   (* TODO: Confim the next two rules *)
   | sub_snd : forall E (p : pth) S T,
       sub E p (typ_pair S T) ->
-      sub E (pth_proj2 p) (open_tt T (pth_proj1 p))
+      sub E (pth_proj2 p) (open_tp T (pth_proj1 p))
   | sub_tsnd : forall E (p : pth) S T,
       sub E p (typ_tpair S T) ->
-      sub E (typ_path_Snd p) (open_tt T (pth_proj1 p))
+      sub E (typ_path_Snd p) (open_tp T (pth_proj1 p))
   | sub_bot : forall E T,
       wf_env E ->
       wf_typ E T ->
@@ -262,7 +305,7 @@ with sub : env -> typ -> typ -> Prop :=
       sub E (typ_arr S1 T1) (typ_arr S2 T2)
   | sub_tfun : forall L E S1 S2 T1 T2,
       sub E S2 S1 ->
-      (forall X, X `notin` L -> sub ((X, bind_typ S2) :: E) (open_tt T1 X) (open_tt T2 X)) ->
+      (forall X, X `notin` L -> sub ((X, bind_typ S2) :: E) (open_tv T1 X) (open_tv T2 X)) ->
       sub E (typ_all S1 T1) (typ_all S2 T2)
   | sub_pair : forall L E S1 S2 T1 T2,
       sub E S1 S2 ->
@@ -289,10 +332,10 @@ Inductive typing : env -> exp -> typ -> Prop :=
   | t_app : forall E (p q : pth) S T,
       typing E p (typ_arr S T) ->
       typing E q S ->
-      typing E (exp_app p q) (open_tt T q)
+      typing E (exp_app p q) (open_tp T q)
   | t_tabs : forall L E S T e,
       wf_typ E S ->
-      (forall X, X `notin` L -> typing ((X, bind_typ S) :: E) (open_et e X) (open_tt T X)) ->
+      (forall X, X `notin` L -> typing ((X, bind_typ S) :: E) (open_ev e X) (open_tp T X)) ->
       typing E (exp_tabs S e) (typ_all S T)
   | t_tapp : forall E (e : pth) R S T,
       typing E e (typ_all S T) ->
@@ -327,3 +370,40 @@ Scheme wf_typ_mutind := Induction for wf_typ Sort Prop
 
 Combined Scheme wf_typ_sub_ind from wf_typ_mutind, sub_mutind.
 
+(* Substitution functions *)
+
+Fixpoint subst_pp (z : atom) (p1 p : pth) {struct p} : pth :=
+  match p with
+  | pth_var (var_b _) => p
+  | pth_var (var_f x) => if x == z then p1 else p
+  | pth_proj1 p => pth_proj1 (subst_pp z p1 p)
+  | pth_proj2 p => pth_proj2 (subst_pp z p1 p)
+  end.
+
+Fixpoint subst_tp (z : atom) (p : pth) (T : typ) {struct T} : typ :=
+  match T with
+  | typ_tvar (var_f x) => if x == z then p else T
+  | typ_arr T1 T2 => typ_arr (subst_tp z p T1) (subst_tp z p T2)
+  | typ_all T1 T2 => typ_all (subst_tp z p T1) (subst_tp z p T2)
+  | typ_pair T1 T2 => typ_pair (subst_tp z p T1) (subst_tp z p T2)
+  | typ_tpair T1 T2 => typ_tpair (subst_tp z p T1) (subst_tp z p T2)
+  | typ_path p' => typ_path (subst_pp z p p')
+  | typ_path_Snd p' => typ_path_Snd (subst_pp z p p')
+  | _ => T
+  end.
+
+(* Tactics *)
+
+Ltac gather_atoms :=
+  let A := gather_atoms_with (fun x : atoms => x) in
+  let B := gather_atoms_with (fun x : atom => singleton x) in
+  let C := gather_atoms_with (fun x : env => dom x) in
+  constr:(A `union` B `union` C).
+
+Tactic Notation "pick" "fresh" ident(x) :=
+  let L := gather_atoms in (pick fresh x for L).
+
+Tactic Notation
+      "pick" "fresh" ident(atom_name) "and" "apply" constr(lemma) :=
+  let L := gather_atoms in
+  pick fresh atom_name excluding L and apply lemma.
