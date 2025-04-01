@@ -53,22 +53,17 @@ Fixpoint open_pp_rec (p : pth) (q : pth) (k : nat) : pth :=
   | pth_proj2 p => pth_proj2 (open_pp_rec p q k)
   end.
 
-Definition open_vp (V : var) (p : pth) (k : nat) : pth :=
-  match V with
-  | var_b n => if n === k then p else V
-  | var_f _ => V
-  end.
-
 Fixpoint open_tp_rec (T : typ) (p : pth) (k : nat) : typ :=
   match T with
-  | typ_tvar a => open_vp a p k
+  | typ_tvar _ => T
+  | typ_top => T
+  | typ_bot => T
   | typ_arr R T => typ_arr (open_tp_rec R p k) (open_tp_rec T p (k+1))
   | typ_all R T => typ_all (open_tp_rec R p k) (open_tp_rec T p (k+1))
   | typ_pair R T => typ_pair (open_tp_rec R p k) (open_tp_rec T p (k+1))
   | typ_tpair R T => typ_tpair (open_tp_rec R p k) (open_tp_rec T p (k+1))
   | typ_path p' => typ_path (open_pp_rec p' p k)
   | typ_path_Snd p' => typ_path_Snd (open_pp_rec p' p k)
-  | _ => T
   end.
 
 (* Open with a type *)
@@ -89,12 +84,16 @@ Definition open_vt (V : var) (T : typ) (k : nat) : typ :=
 
 Fixpoint open_tt_rec (T : typ) (U : typ) (k : nat) : typ :=
   match T with
-  | typ_tvar a => open_vt a U k
+  | typ_tvar (var_f _) => T
+  | typ_tvar (var_b n) => if n === k then U else T
+  | typ_top => T
+  | typ_bot => T
   | typ_arr R T => typ_arr (open_tt_rec R U k) (open_tt_rec T U (k+1))
   | typ_all R T => typ_all (open_tt_rec R U k) (open_tt_rec T U (k+1))
   | typ_pair R T => typ_pair (open_tt_rec R U k) (open_tt_rec T U (k+1))
   | typ_tpair R T => typ_tpair (open_tt_rec R U k) (open_tt_rec T U (k+1))
-  | _ => T
+  | typ_path _ => T
+  | typ_path_Snd _ => T
   end.
 
 (* Fixpoint open_et_rec (E : exp) (U : typ) (k : nat) : exp := *)
@@ -124,8 +123,8 @@ Fixpoint open_tv_rec (T : typ) (V : var) (k : nat) : typ :=
   | typ_all R T => typ_arr (open_tv_rec R V k) (open_tv_rec T V (k+1))
   | typ_pair R T => typ_pair (open_tv_rec R V k) (open_tv_rec T V (k+1))
   | typ_tpair R T => typ_tpair (open_tv_rec R V k) (open_tv_rec T V (k+1))
-  | typ_path p => typ_path (open_pv p V k)
-  | typ_path_Snd p => typ_path_Snd (open_pv p V k)
+  (* | typ_path p => typ_path (open_pv p V k) *)
+  (* | typ_path_Snd p => typ_path_Snd (open_pv p V k) *)
   | _ => T
   end.
 
@@ -141,7 +140,7 @@ Fixpoint open_ev_rec (E : exp) (V: var) (k : nat) : exp :=
   end.
 
 
-Definition open_pp p q := open_pp_rec p q 0.
+(* Definition open_pp p q := open_pp_rec p q 0. *)
 Definition open_tp T p := open_tp_rec T p 0.
 Definition open_tt (T : typ) (U : typ) : typ := open_tt_rec T U 0.
 Definition open_tv (T : typ) (V : var) : typ := open_tv_rec T V 0.
@@ -149,7 +148,7 @@ Definition open_ev (E : exp) (V : var) : exp := open_ev_rec E V 0.
 (* Definition open_et (E : exp) (U : typ) : exp := open_et_rec E U 0. *)
 
 Inductive path : pth -> Prop :=
-  | path_var : forall x, path (pth_var x)
+  | path_var : forall (x: atom), path (pth_var x)
   | path_proj1 : forall p, path p -> path (pth_proj1 p)
   | path_proj2 : forall p, path p -> path (pth_proj2 p).
 
@@ -200,6 +199,7 @@ Inductive binding : Set :=
   | bind_typ : typ -> binding.
 
 Definition env := list (atom * binding).
+Definition emap (f : binding -> binding) (E : env) : env := @EnvImpl.map _ _ f E.
 
 Inductive wf_typ : env -> typ -> Prop :=
   | w_var : forall E x T,
@@ -279,16 +279,20 @@ with sub : env -> typ -> typ -> Prop :=
       binds X (bind_typ T) E ->
       sub E X T
   | sub_fst : forall E (p : pth) S T,
+      path p ->
       sub E p (typ_pair S T) ->
       sub E (pth_proj1 p) S
   | sub_tfst : forall E (p : pth) S T,
+      path p ->
       sub E p (typ_tpair S T) ->
       sub E (pth_proj1 p) S
   (* TODO: Confim the next two rules *)
   | sub_snd : forall E (p : pth) S T,
+      path p ->
       sub E p (typ_pair S T) ->
       sub E (pth_proj2 p) (open_tp T (pth_proj1 p))
   | sub_tsnd : forall E (p : pth) S T,
+      path p ->
       sub E p (typ_tpair S T) ->
       sub E (typ_path_Snd p) (open_tp T (pth_proj1 p))
   | sub_bot : forall E T,
@@ -382,15 +386,74 @@ Fixpoint subst_pp (z : atom) (p1 p : pth) {struct p} : pth :=
 
 Fixpoint subst_tp (z : atom) (p : pth) (T : typ) {struct T} : typ :=
   match T with
-  | typ_tvar (var_f x) => if x == z then p else T
+  | typ_tvar _ => T
+  | typ_top => T
+  | typ_bot => T
   | typ_arr T1 T2 => typ_arr (subst_tp z p T1) (subst_tp z p T2)
   | typ_all T1 T2 => typ_all (subst_tp z p T1) (subst_tp z p T2)
   | typ_pair T1 T2 => typ_pair (subst_tp z p T1) (subst_tp z p T2)
   | typ_tpair T1 T2 => typ_tpair (subst_tp z p T1) (subst_tp z p T2)
   | typ_path p' => typ_path (subst_pp z p p')
   | typ_path_Snd p' => typ_path_Snd (subst_pp z p p')
-  | _ => T
   end.
+
+Fixpoint subst_tt (z : atom) (U : typ) (T : typ) {struct T} : typ :=
+  match T with
+  | typ_tvar (var_f x) => if x == z then U else T
+  | typ_tvar (var_b _) => T
+  | typ_top => T
+  | typ_bot => T
+  | typ_arr T1 T2 => typ_arr (subst_tt z U T1) (subst_tt z U T2)
+  | typ_all T1 T2 => typ_all (subst_tt z U T1) (subst_tt z U T2)
+  | typ_pair T1 T2 => typ_pair (subst_tt z U T1) (subst_tt z U T2)
+  | typ_tpair T1 T2 => typ_tpair (subst_tt z U T1) (subst_tt z U T2)
+  | typ_path _ => T
+  | typ_path_Snd _ => T
+  end.
+
+Definition subst_bp (z : atom) (p : pth) (b : binding) : binding :=
+  match b with
+  | bind_typ T => bind_typ (subst_tp z p T)
+  | bind_val T => bind_val (subst_tp z p T)
+  end.
+
+(* Free variables *)
+
+Fixpoint fv_tt (T : typ) : atoms :=
+  match T with
+  | typ_tvar (var_f x) => singleton x
+  | typ_tvar (var_b _) => {}
+  | typ_top => {}
+  | typ_bot => {}
+  | typ_arr T1 T2 => (fv_tt T1) `union` (fv_tt T2)
+  | typ_all T1 T2 => (fv_tt T1) `union` (fv_tt T2)
+  | typ_pair T1 T2 => (fv_tt T1) `union` (fv_tt T2)
+  | typ_tpair T1 T2 => (fv_tt T1) `union` (fv_tt T2)
+  | typ_path p => {}
+  | typ_path_Snd p => {}
+  end.
+
+Fixpoint fv_pp (p : pth) : atoms :=
+  match p with
+  | pth_var (var_f x) => singleton x
+  | pth_var (var_b _) => {}
+  | pth_proj1 p => fv_pp p
+  | pth_proj2 p => fv_pp p
+  end.
+
+Fixpoint fv_tp (T : typ) : atoms :=
+  match T with
+  | typ_tvar _ => {}
+  | typ_top => {}
+  | typ_bot => {}
+  | typ_arr T1 T2 => (fv_tp T1) `union` (fv_tp T2)
+  | typ_all T1 T2 => (fv_tp T1) `union` (fv_tp T2)
+  | typ_pair T1 T2 => (fv_tp T1) `union` (fv_tp T2)
+  | typ_tpair T1 T2 => (fv_tp T1) `union` (fv_tp T2)
+  | typ_path p => fv_pp p
+  | typ_path_Snd p => fv_pp p
+  end.
+
 
 (* Tactics *)
 
@@ -398,7 +461,9 @@ Ltac gather_atoms :=
   let A := gather_atoms_with (fun x : atoms => x) in
   let B := gather_atoms_with (fun x : atom => singleton x) in
   let C := gather_atoms_with (fun x : env => dom x) in
-  constr:(A `union` B `union` C).
+  let D := gather_atoms_with (fun x : typ => fv_tt x) in
+  let E := gather_atoms_with (fun x : typ => fv_tp x) in
+  constr:(A `union` B `union` C `union` D `union` E).
 
 Tactic Notation "pick" "fresh" ident(x) :=
   let L := gather_atoms in (pick fresh x for L).
