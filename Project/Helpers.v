@@ -92,6 +92,25 @@ Proof with eauto.
     fsetdec.
   + destruct (a == z)...
     inversion H...
+Lemma subst_pp_open_pv_is_open_pp : forall z (p q: pth) k,
+  z `notin` fv_tp q ->
+  subst_pp z p (open_pv q z k) = open_pp_rec q p k.
+Proof with eauto.
+  intros. generalize dependent k.
+  dependent induction q; simpl in *; intros; try f_equal...
+  destruct v; simpl in *...
+  destruct (n == k)...
+  simpl...
+  destruct (z == z); try fsetdec.
+  destruct (a == z); try fsetdec.
+Qed.
+
+Lemma subst_tp_open_tpv_is_open_tp : forall z p T k,
+  z `notin` fv_tp T ->
+  subst_tp z p (open_tpv_rec T z k) = open_tp_rec T p k.
+Proof with eauto using subst_pp_open_pv_is_open_pp.
+  intros. generalize dependent k.
+  dependent induction T; simpl in *; intros; try f_equal...
 Qed.
 
 Lemma subst_pp_open_pp_rec : forall z k (p q p0 : pth),
@@ -152,9 +171,9 @@ Qed.
 Lemma fvar_from_env_aux :
   (forall E,
     wf_env E ->
-    forall z T,
+    forall z x T,
+      binds x (bind_val T) E \/ binds x (bind_typ T) E ->
       z `notin` dom E ->
-      wf_typ E T ->
       z `notin` fv_tp T) /\
   (forall E T,
     wf_typ E T ->
@@ -170,7 +189,19 @@ Proof with eauto 4.
   apply wf_env_typ_sub_ind; intros; simpl in *...
 
   (* wf_env *)
-  1-3: admit.
+  {
+   simpl in *. destruct H1; subst.
+    + analyze_binds H1...
+      inversion BindsTacVal; subst...
+    + analyze_binds H1...
+      }
+
+  {
+  simpl in *. destruct H1; subst.
+    + analyze_binds H1...
+    + analyze_binds H1...
+      inversion BindsTacVal; subst...
+      }
 
   (* wf_typ *)
   2: rename X into x.
@@ -195,7 +226,7 @@ Proof with eauto 4.
   pose proof (wf_env_binds_val_wf _ _ _ w b).
   2: rename X into x;
      pose proof (wf_env_binds_typ_wf _ _ _ w b).
-  1,2: split; [apply binds_In in b; fsetdec | apply H; eauto].
+  1,2: split; [apply binds_In in b; fsetdec | apply (H z x T); eauto].
 
   1,2: destruct (H z H0); simpl in *; fsetdec.
 
