@@ -49,9 +49,19 @@ Qed.
 
 (* Substitution lemmas *)
 
-Lemma open_path_ident : forall p q k,
+Lemma open_pp_path_ident : forall p q k,
   path p ->
   open_pp_rec p q k = p.
+Proof with eauto.
+  intros. dependent induction p; simpl in *; try f_equal...
+  destruct v... inversion H...
+  inversion H...
+  inversion H...
+Qed.
+
+Lemma open_pv_path_ident : forall p x k,
+  path p ->
+  open_pv p x k = p.
 Proof with eauto.
   intros. dependent induction p; simpl in *; try f_equal...
   destruct v... inversion H...
@@ -76,73 +86,89 @@ Proof with eauto using subst_pp_fresh.
   intros. dependent induction T; simpl in *; try f_equal...
 Qed.
 
-Lemma subst_tp_open_tv_rec : forall z k x (p: pth) T,
+Lemma subst_pp_open_pv_commute_fresh : forall z x (p q: pth) k,
   path p ->
-  x `notin` fv_tp T `union` {{ z }} ->
-  subst_tp z p (open_tv_rec T x k) = open_tv_rec (subst_tp z p T) x k.
-Proof with eauto.
-  intros.
-  generalize dependent k.
-  dependent induction T; simpl; intros; try (simpl in H0;f_equal;eauto)...
-  destruct p0...
-  destruct v; simpl...
-  + destruct (n == k)...
-    simpl.
-    destruct (x == z)...
-    fsetdec.
-  + destruct (a == z)...
-    inversion H...
-Lemma subst_pp_open_pv_is_open_pp : forall z (p q: pth) k,
-  z `notin` fv_tp q ->
-  subst_pp z p (open_pv q z k) = open_pp_rec q p k.
+  x `notin` fv_pp q `union` {{ z }} ->
+  subst_pp z p (open_pv q x k) = open_pv (subst_pp z p q) x k.
 Proof with eauto.
   intros. generalize dependent k.
   dependent induction q; simpl in *; intros; try f_equal...
   destruct v; simpl in *...
-  destruct (n == k)...
-  simpl...
-  destruct (z == z); try fsetdec.
-  destruct (a == z); try fsetdec.
+  - destruct (n == k)...
+    simpl...
+    destruct (x == z); try fsetdec.
+  - destruct (a == z)...
+    rewrite open_pv_path_ident...
 Qed.
 
-Lemma subst_tp_open_tpv_is_open_tp : forall z p T k,
-  z `notin` fv_tp T ->
-  subst_tp z p (open_tpv_rec T z k) = open_tp_rec T p k.
-Proof with eauto using subst_pp_open_pv_is_open_pp.
-  intros. generalize dependent k.
-  dependent induction T; simpl in *; intros; try f_equal...
-Qed.
-
-Lemma subst_pp_open_pp_rec : forall z k (p q p0 : pth),
+Lemma subst_tp_open_tv_commute_fresh : forall z k x (p: pth) T,
   path p ->
-  subst_pp z p (open_pp_rec p0 q k) = open_pp_rec (subst_pp z p p0) (subst_pp z p q) k.
-Proof with eauto.
+  x `notin` fv_tp T `union` {{ z }} ->
+  subst_tp z p (open_tv_rec T x k) = open_tv_rec (subst_tp z p T) x k.
+Proof with eauto using subst_pp_open_pv_commute_fresh.
   intros.
   generalize dependent k.
-  dependent induction p0; simpl in *; intros; try f_equal...
+  dependent induction T; simpl; intros; try (simpl in H0;f_equal;eauto)...
+Qed.
+
+Lemma subst_tp_open_tt_commute : forall z X k (p : pth) T,
+  subst_tp z p (open_tt_rec T (typ_tvar X) k) = open_tt_rec (subst_tp z p T) (typ_tvar X) k.
+Proof with eauto.
+  intros. generalize dependent k.
+  dependent induction T; simpl; intros; try f_equal...
   destruct v; simpl in *...
   destruct (n == k)...
-  destruct (a == z)...
-  rewrite open_path_ident...
 Qed.
 
-Lemma subst_tp_open_tp_rec : forall z k (p q : pth) T,
+Lemma subst_pp_open_pp_commute : forall z k (p q : pth) T,
+  path p ->
+  subst_pp z p (open_pp_rec T q k) = open_pp_rec (subst_pp z p T) (subst_pp z p q) k.
+Proof with eauto.
+  intros. generalize dependent k.
+  dependent induction T; simpl; intros; try f_equal...
+  destruct v; simpl in *...
+  - destruct (n == k)...
+  - destruct (a == z); try fsetdec.
+    rewrite open_pp_path_ident...
+Qed.
+
+Lemma subst_tp_open_tp_commute : forall z k (p q : pth) T,
   path p ->
   subst_tp z p (open_tp_rec T q k) = open_tp_rec (subst_tp z p T) (subst_pp z p q) k.
-Proof with eauto using subst_pp_open_pp_rec.
-  intros.
-  generalize dependent k.
-  dependent induction T; simpl in *; intros; try f_equal...
+Proof with eauto using subst_pp_open_pp_commute.
+  intros. generalize dependent k.
+  dependent induction T; simpl; intros; try f_equal...
 Qed.
 
 (* fv subset lemmas *)
 
-Lemma fv_pp_open_pp_sub_fv_pp : forall p q z k,
-  z `notin` fv_pp q `union` fv_pp p ->
+Lemma fv_pp_sub_fv_pp_open_pv : forall p x z k,
+  z `notin` fv_pp (open_pv p x k) ->
+  z `notin` fv_pp p.
+Proof with eauto.
+  intros. dependent induction p; simpl in *; try fsetdec...
+  destruct v...
+Qed.
+
+Lemma fv_tp_sub_fv_tp_open_tv : forall T x z k,
+  z `notin` fv_tp (open_tv_rec T x k) ->
+  z `notin` fv_tp T.
+Proof with eauto using fv_pp_sub_fv_pp_open_pv.
+  intros. dependent induction T; simpl in *; try fsetdec...
+Qed.
+
+Lemma fv_tp_sub_fv_tp_open_tt : forall T x z k,
+  z `notin` fv_tp (open_tt_rec T x k) ->
+  z `notin` fv_tp T.
+Proof with eauto.
+  intros. dependent induction T; simpl in *; try fsetdec...
+Qed.
+
+Lemma fv_pp_open_pp_sub_fv_pp : forall p q k z,
+  z `notin` fv_pp p `union` fv_pp q ->
   z `notin` fv_pp (open_pp_rec p q k).
 Proof with eauto.
-  intros.
-  dependent induction p; simpl in *; try fsetdec...
+  intros. dependent induction p; simpl in *; try fsetdec...
   destruct v...
   destruct (n == k)...
 Qed.
@@ -150,20 +176,9 @@ Qed.
 Lemma fv_tp_open_tp_sub_fv_tp_pp : forall T p k z,
   z `notin` fv_tp T `union` fv_pp p ->
   z `notin` fv_tp (open_tp_rec T p k).
-Proof with eauto.
+Proof with eauto using fv_pp_open_pp_sub_fv_pp.
   intros.
   dependent induction T; simpl in *; try fsetdec...
-  - eapply fv_pp_open_pp_sub_fv_pp...
-  - eapply fv_pp_open_pp_sub_fv_pp...
-Qed.
-
-Lemma fv_tp_sub_fv_tp_open_tv : forall T x z k,
-  z `notin` fv_tp (open_tv_rec T x k) ->
-  z `notin` fv_tp T.
-Proof with eauto.
-  intros. dependent induction T; simpl in *; try fsetdec...
-  destruct p...
-  destruct v...
 Qed.
 
 (* fvars_from env *)
@@ -185,28 +200,18 @@ Lemma fvar_from_env_aux :
     forall z,
       z `notin` dom E ->
       z `notin` fv_tp T /\ z `notin` fv_tp U).
-Proof with eauto 4.
+Proof with eauto 4 using fv_tp_sub_fv_tp_open_tv, fv_tp_sub_fv_tp_open_tt.
   apply wf_env_typ_sub_ind; intros; simpl in *...
 
   (* wf_env *)
-  {
-   simpl in *. destruct H1; subst.
-    + analyze_binds H1...
-      inversion BindsTacVal; subst...
-    + analyze_binds H1...
-      }
-
-  {
-  simpl in *. destruct H1; subst.
-    + analyze_binds H1...
-    + analyze_binds H1...
-      inversion BindsTacVal; subst...
-      }
+  1,2: simpl in *; destruct H1; subst;
+       analyze_binds H1; eauto;
+       inversion BindsTacVal; subst...
 
   (* wf_typ *)
-  2: rename X into x.
-  1,2: enough (z <> x) by fsetdec;
-       eapply binds_In in b; fsetdec.
+  (* 2: rename X into x. *)
+   enough (z <> x) by fsetdec;
+   eapply binds_In in b; fsetdec.
 
   1-4: pose proof (proj1 (H _ H0)); simpl in *; fsetdec.
 
@@ -214,33 +219,34 @@ Proof with eauto 4.
        specialize (H z H1);
        enough (z `notin` fv_tp T) by (clear - H H2; fsetdec);
        assert (Temp: z `notin` dom ((x, bind_val S) :: E)) by (simpl; fsetdec);
-       specialize (H0 x ltac:(fsetdec) z Temp);
-       eapply fv_tp_sub_fv_tp_open_tv...
+       specialize (H0 x ltac:(fsetdec) z Temp)...
 
   (* sub *)
   specialize (H z H1). specialize (H0 z H1).
   split; fsetdec.
 
-  specialize (H z H0). simpl in H...
+  specialize (H z H0). simpl in H... pose proof (wf_env_binds_val_wf _ _ _ w b).
 
-  pose proof (wf_env_binds_val_wf _ _ _ w b).
-  2: rename X into x;
-     pose proof (wf_env_binds_typ_wf _ _ _ w b).
-  1,2: split; [apply binds_In in b; fsetdec | apply (H z x T); eauto].
+  (* 2: rename X into x; *)
+     (* pose proof (wf_env_binds_typ_wf _ _ _ w b). *)
+  split; [apply binds_In in b; fsetdec | apply (H z x T); eauto].
 
   1,2: destruct (H z H0); simpl in *; fsetdec.
 
   1,2: destruct (H z H0); split; try fsetdec; eapply fv_tp_open_tp_sub_fv_tp_pp; simpl; fsetdec.
 
-  all: pick fresh x; 
+  all: pick fresh x;
        assert (z `notin` dom ((x, bind_val S2) :: E))
           by (destruct_notin; clear - H1 NotInTac; simpl; fsetdec);
        destruct (H0 x ltac:(fsetdec) z H2) as [T1Open T2Open];
-       destruct (H z H1) as [NotinS2 NotinS1];
-       apply fv_tp_sub_fv_tp_open_tv in T1Open;
-       apply fv_tp_sub_fv_tp_open_tv in T2Open;
-       clear - NotinS1 NotinS2 T1Open T2Open; fsetdec.
-Admitted.
+       destruct (H z H1) as [NotinS2 NotinS1].
+
+  1,3,4: apply fv_tp_sub_fv_tp_open_tv in T1Open;
+         apply fv_tp_sub_fv_tp_open_tv in T2Open.
+  4: apply fv_tp_sub_fv_tp_open_tt in T1Open;
+     apply fv_tp_sub_fv_tp_open_tt in T2Open.
+  all: clear - NotinS1 NotinS2 T1Open T2Open; fsetdec.
+Qed.
 
 Lemma wf_typ_fvar_from_env : forall E T z,
   wf_typ E T ->
