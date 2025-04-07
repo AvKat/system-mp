@@ -10,6 +10,20 @@ Proof with eauto.
   intros. dependent induction H...
 Qed.
 
+Lemma wf_typ_env_wf : forall E T,
+  wf_typ E T ->
+  wf_env E.
+Proof with eauto using sub_env_wf.
+  intros. dependent induction H...
+Qed.
+
+Lemma typing_env_wf : forall E p T,
+  typing E p T ->
+  wf_env E.
+Proof with eauto using wf_typ_env_wf, sub_env_wf.
+  intros. dependent induction H...
+Qed.
+
 Lemma wf_env_strengthen_head : forall E F,
   wf_env (E ++ F) ->
   wf_env F.
