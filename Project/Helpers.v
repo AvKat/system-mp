@@ -1,4 +1,4 @@
-Require Import SystemMP.Project.Inversion.
+Require Export SystemMP.Project.Infrastructure.
 Require Import Coq.Program.Equality.
 
 (* Well-formedness *)
@@ -241,25 +241,32 @@ Proof with eauto 4 using fv_tp_sub_fv_tp_open_tv, fv_tp_sub_fv_tp_open_tt.
 
   specialize (H z H0). simpl in H... pose proof (wf_env_binds_val_wf _ _ _ w b).
 
-  (* 2: rename X into x; *)
-     (* pose proof (wf_env_binds_typ_wf _ _ _ w b). *)
   split; [apply binds_In in b; fsetdec | apply (H z x T); eauto].
 
   1,2: destruct (H z H0); simpl in *; fsetdec.
 
   1,2: destruct (H z H0); split; try fsetdec; eapply fv_tp_open_tp_sub_fv_tp_pp; simpl; fsetdec.
 
-  all: pick fresh x;
-       assert (z `notin` dom ((x, bind_val S2) :: E))
-          by (destruct_notin; clear - H1 NotInTac; simpl; fsetdec);
-       destruct (H0 x ltac:(fsetdec) z H2) as [T1Open T2Open];
-       destruct (H z H1) as [NotinS2 NotinS1].
+
+  (* sub_fun, sub_tfun, sub_pair, sub_tpair *)
+  1,2:
+  pick fresh x;
+  assert (ZNotIn: z `notin` dom ((x, bind_val S2) :: E))
+      by (destruct_notin; clear - H2 NotInTac; simpl; fsetdec); simpl in ZNotIn;
+  destruct (H1 x ltac:(fsetdec) z ZNotIn) as [T1Open T2Open];
+  destruct (H z H2) as [NotinS2 NotinS1].
+  3,4:
+  pick fresh x;
+  assert (z `notin` dom ((x, bind_val S2) :: E))
+      by (destruct_notin; clear - H1 NotInTac; simpl; fsetdec);
+   destruct (H0 x ltac:(fsetdec) z H2) as [T1Open T2Open];
+   destruct (H z H1) as [NotinS2 NotinS1].
 
   1,3,4: apply fv_tp_sub_fv_tp_open_tv in T1Open;
-         apply fv_tp_sub_fv_tp_open_tv in T2Open.
-  4: apply fv_tp_sub_fv_tp_open_tt in T1Open;
-     apply fv_tp_sub_fv_tp_open_tt in T2Open.
-  all: clear - NotinS1 NotinS2 T1Open T2Open; fsetdec.
+     apply fv_tp_sub_fv_tp_open_tv in T2Open...
+
+   apply fv_tp_sub_fv_tp_open_tt in T1Open;
+   apply fv_tp_sub_fv_tp_open_tt in T2Open...
 Qed.
 
 Lemma wf_typ_fvar_from_env : forall E T z,

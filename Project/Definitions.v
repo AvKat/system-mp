@@ -307,10 +307,12 @@ with sub : env -> typ -> typ -> Prop :=
       sub E T typ_top
   | sub_fun : forall L E S1 S2 T1 T2,
       sub E S2 S1 ->
+      wf_typ E (typ_arr S1 T1) ->
       (forall x, x `notin` L -> sub ((x, bind_val S2) :: E) (open_tv T1 x) (open_tv T2 x)) ->
       sub E (typ_arr S1 T1) (typ_arr S2 T2)
   | sub_tfun : forall L E S1 S2 T1 T2,
       sub E S2 S1 ->
+      wf_typ E (typ_all S1 T1) ->
       (forall X, X `notin` L -> sub ((X, bind_typ S2) :: E) (open_tt T1 (typ_tvar X)) (open_tt T2 (typ_tvar X))) ->
       sub E (typ_all S1 T1) (typ_all S2 T2)
   | sub_pair : forall L E S1 S2 T1 T2,

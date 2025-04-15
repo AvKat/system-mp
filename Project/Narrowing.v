@@ -1,5 +1,5 @@
-Require Import SystemMP.Project.Infrastructure.
-Require Import SystemMP.Project.Helpers.
+Require Export SystemMP.Project.Infrastructure.
+Require Export SystemMP.Project.Helpers.
 Require Import Coq.Program.Equality.
 Import ListNotations.
 
@@ -27,7 +27,7 @@ Lemma narrowing_val_aux :
       sub F S' S ->
       wf_typ F S' ->
       sub (E ++ (z, bind_val S') :: F) T U)).
-Proof with eauto 5 using wf_env_weaken_val, wf_typ_weaken_val, sub_weaken_val.
+Proof with eauto 5 using wf_env_weaken_val, wf_typ_weaken_val, sub_weaken_val, sub_env_wf.
   apply wf_env_typ_sub_ind; intros; subst...
 
   (* ------------- wf_env ------------- *)
@@ -85,15 +85,18 @@ Proof with eauto 5 using wf_env_weaken_val, wf_typ_weaken_val, sub_weaken_val.
   (* Case s_tvar *)
   analyze_binds b...
 
-  (* Case s_fun, s_par, s_tpair *)
+  (* Case s_fun *)
   pick fresh x and apply sub_fun...
-  3: pick fresh x and apply sub_pair...
-  4: pick fresh x and apply sub_tpair...
-  1,3,4: eapply (H0 x ltac:(fsetdec) ((x, bind_val S2) :: E0)); eauto; reflexivity.
+  eapply (H1 x ltac:(fsetdec) ((x, bind_val S2) :: E0)); eauto; reflexivity.
 
   (* Case s_tfun *)
   pick fresh X and apply sub_tfun...
-  eapply (H0 X ltac:(fsetdec) ((X, bind_typ S2) :: E0)); eauto; reflexivity.
+  eapply (H1 X ltac:(fsetdec) ((X, bind_typ S2) :: E0)); eauto; reflexivity.
+
+  (* Case s_pair, s_tpair *)
+  pick fresh x and apply sub_pair...
+  2: pick fresh x and apply sub_tpair...
+  all: eapply (H0 x ltac:(fsetdec) ((x, bind_val S2) :: E0)); eauto; reflexivity.
 Qed.
 
 Theorem wf_typ_narrow_val : forall E F z S S' T,
@@ -145,7 +148,7 @@ Lemma narrowing_typ_aux :
       sub F S' S ->
       wf_typ F S' ->
       sub (E ++ (z, bind_typ S') :: F) T U)).
-Proof with eauto 5 using wf_env_weaken_typ, wf_typ_weaken_typ, sub_weaken_typ.
+Proof with eauto 5 using wf_env_weaken_typ, wf_typ_weaken_typ, sub_weaken_typ, sub_env_wf.
   apply wf_env_typ_sub_ind; intros; subst...
 
   (* ------------- wf_env ------------- *)
@@ -203,15 +206,18 @@ Proof with eauto 5 using wf_env_weaken_typ, wf_typ_weaken_typ, sub_weaken_typ.
   simpl_env...
   eapply H...
 
-  (* Case s_fun, s_par, s_tpair *)
+  (* Case s_fun *)
   pick fresh x and apply sub_fun...
-  3: pick fresh x and apply sub_pair...
-  4: pick fresh x and apply sub_tpair...
-  1,3,4: eapply (H0 x ltac:(fsetdec) ((x, bind_val S2) :: E0)); eauto; reflexivity.
+  eapply (H1 x ltac:(fsetdec) ((x, bind_val S2) :: E0)); eauto; reflexivity.
 
   (* Case s_tfun *)
   pick fresh X and apply sub_tfun...
-  eapply (H0 X ltac:(fsetdec) ((X, bind_typ S2) :: E0)); eauto; reflexivity.
+  eapply (H1 X ltac:(fsetdec) ((X, bind_typ S2) :: E0)); eauto; reflexivity.
+
+  (* Case s_pair, s_tpair *)
+  pick fresh x and apply sub_pair...
+  2: pick fresh x and apply sub_tpair...
+  all: eapply (H0 x ltac:(fsetdec) ((x, bind_val S2) :: E0)); eauto; reflexivity.
 Qed.
 
 Theorem wf_typ_narrow_typ : forall E F z S S' T,
