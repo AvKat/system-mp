@@ -19,5 +19,4 @@ Project/Helpers.v
 Project/Infrastructure.v
 Project/Narrowing.v
 Project/Inversion.v
-Project/Substitution.v
-Project/Regularity.v
+Project/SubstitutionAndRegularity.v

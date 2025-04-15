@@ -154,6 +154,27 @@ Proof with eauto using subst_pp_open_pp_commute.
   dependent induction T; simpl; intros; try f_equal...
 Qed.
 
+Lemma subst_pp_open_pv_is_open_pp : forall z p q k,
+  z `notin` fv_pp q ->
+  subst_pp z p (open_pv q z k) = open_pp_rec q p k.
+Proof with eauto.
+  intros. generalize dependent k.
+  dependent induction q; intros; simpl; try f_equal...
+  destruct v; simpl in *...
+  - destruct (n == k)...
+    simpl...
+    destruct (z == z); try fsetdec.
+  - destruct (a == z); try fsetdec.
+Qed.
+
+Lemma subst_tp_open_tv_is_open_tp : forall z p T k,
+  z `notin` fv_tp T ->
+  subst_tp z p (open_tv_rec T z k) = open_tp_rec T p k.
+Proof with eauto using subst_pp_open_pv_is_open_pp.
+  intros. generalize dependent k.
+  dependent induction T; intros; simpl in *; try f_equal...
+Qed.
+
 (* fv subset lemmas *)
 
 Lemma fv_pp_sub_fv_pp_open_pv : forall p x z k,
