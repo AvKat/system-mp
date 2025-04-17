@@ -1,67 +1,6 @@
-Require Export SystemMP.Project.Infrastructure.
+Require Export SystemMP.Project.Core.
 Require Import Coq.Program.Equality.
-
-(* Well-formedness *)
-
-Lemma sub_env_wf : forall E T U,
-  sub E T U ->
-  wf_env E.
-Proof with eauto.
-  intros. dependent induction H...
-Qed.
-
-Lemma wf_typ_env_wf : forall E T,
-  wf_typ E T ->
-  wf_env E.
-Proof with eauto using sub_env_wf.
-  intros. dependent induction H...
-Qed.
-
-Lemma typing_env_wf : forall E p T,
-  typing E p T ->
-  wf_env E.
-Proof with eauto using wf_typ_env_wf, sub_env_wf.
-  intros. dependent induction H...
-Qed.
-
-Lemma wf_env_strengthen_head : forall E F,
-  wf_env (E ++ F) ->
-  wf_env F.
-Proof with eauto.
-  intros. dependent induction E...
-  simpl in H. inversion H; subst...
-Qed.
-
-Lemma typed_path_wf : forall E (p: pth) T,
-  typing E p T ->
-  wf_typ E p.
-Proof with eauto.
-  intros. dependent induction H...
-Qed.
-
-Lemma wf_pth_path : forall E (p : pth),
-  wf_typ E p ->
-  path p
-with sub_pth_path : forall E (p : pth) T,
-  sub E p T ->
-  path p.
-Proof with eauto.
-  - clear wf_pth_path.
-    intros. dependent induction H...
-  - clear sub_pth_path.
-    intros. dependent induction H...
-Qed.
-
-Lemma subst_pp_path : forall z p q,
-  path p ->
-  path q ->
-  path (subst_pp z p q).
-Proof with eauto.
-  intros. dependent induction H0; simpl...
-  destruct (x == z)...
-Qed.
-
-(* Substitution lemmas *)
+Require Import Lia.
 
 Lemma open_pp_path_ident : forall p q k,
   path p ->
@@ -81,6 +20,213 @@ Proof with eauto.
   destruct v... inversion H...
   inversion H...
   inversion H...
+Qed.
+
+(* Machinery for open_tv_type_ident *)
+
+Hint Extern 1 => lia : core.
+
+Inductive varN : nat -> var -> Prop :=
+  | varN_b : forall n (m : nat),
+      m < n ->
+      varN n (var_b m)
+  | varN_f : forall n (x : atom),
+      varN n x.
+
+Inductive pathN : nat -> pth -> Prop :=
+  | pathN_var : forall n v,
+      varN n v ->
+      pathN n (pth_var v)
+  | pathN_proj1 : forall n p,
+      pathN n p ->
+      pathN n (pth_proj1 p)
+  | pathN_proj2 : forall n p,
+      pathN n p ->
+      pathN n (pth_proj2 p).
+
+Inductive typeN : nat -> typ -> Prop :=
+  | typeN_tvar : forall n v,
+      varN n v ->
+      typeN n (typ_tvar v)
+  | typeN_top : forall n,
+      typeN n typ_top
+  | typeN_bot : forall n,
+      typeN n typ_bot
+  | typeN_arr : forall n T1 T2,
+      typeN n T1 ->
+      typeN (S n) T2 ->
+      typeN n (typ_arr T1 T2)
+  | typeN_all : forall n T1 T2,
+      typeN n T1 ->
+      typeN (S n) T2 ->
+      typeN n (typ_all T1 T2)
+  | typeN_path : forall n p,
+      pathN n p ->
+      typeN n (typ_path p)
+  | typeN_path_Snd : forall n p,
+      pathN n p ->
+      typeN n (typ_path_Snd p)
+  | typeN_vpair : forall n T1 T2,
+      typeN n T1 ->
+      typeN (S n) T2 ->
+      typeN n (typ_pair T1 T2)
+  | typeN_tpair : forall n T1 T2,
+      typeN n T1 ->
+      typeN (S n) T2 ->
+      typeN n (typ_tpair T1 T2).
+
+Hint Constructors varN typeN pathN : core.
+
+Lemma varN_weakening : forall n m v,
+  varN n v ->
+  n <= m ->
+  varN m v.
+Proof with eauto.
+  intros.
+  induction H; constructor; lia.
+Qed.
+
+Lemma pathN_weakening : forall n m p,
+  pathN n p ->
+  n <= m ->
+  pathN m p.
+Proof with eauto.
+  intros.
+  induction H; constructor; eauto using varN_weakening.
+Qed.
+
+Lemma typeN_weakening : forall n m T,
+  typeN n T ->
+  n <= m ->
+  typeN m T.
+Proof with eauto using varN_weakening, pathN_weakening.
+  intros. generalize dependent m.
+  induction H; try constructor...
+  all: apply IHtypeN2; lia.
+Qed.
+
+Lemma open_pv_pathN_aux : forall n x p,
+  pathN n (open_pv p x n) ->
+  pathN (S n) p.
+Proof with eauto.
+  intros. generalize dependent n.
+  dependent induction p; intros; simpl in *; inversion H; subst...
+  all: destruct v; eauto; destruct (n0 == n)...
+  all: inversion H; subst; inversion H4; subst...
+Qed.
+
+Lemma open_tv_rec_typeN_aux : forall n x T,
+  typeN n (open_tv_rec T x n) ->
+  typeN (S n) T.
+Proof with eauto using open_pv_pathN_aux.
+  intros. generalize dependent n.
+  dependent induction T; intros; simpl in *; inversion H; subst...
+  inversion H2; subst...
+  all: constructor...
+  all: apply IHT2; replace (n + 1) with (S n) in H4 by lia...
+Qed.
+
+Lemma open_pv_pathN : forall n m v p,
+  pathN n p ->
+  m >= n ->
+  p = open_pv p v m.
+Proof with eauto using open_pv_pathN_aux, pathN_weakening.
+  intros.
+  generalize dependent m.
+  generalize dependent n.
+  induction p; intros; simpl in *; try f_equal...
+
+  destruct v0...
+  destruct (n0 == m); subst...
+  inversion H; subst...
+  inversion H3; subst...
+
+  all: inversion H...
+Qed.
+
+Lemma open_tv_rec_typeN : forall n m v T,
+  typeN n T ->
+  m >= n ->
+  T = open_tv_rec T v m.
+Proof with eauto using open_tv_rec_typeN_aux, typeN_weakening, open_pv_pathN.
+  intros.
+  generalize dependent m.
+  generalize dependent n.
+  induction T; intros; simpl in *; try f_equal...
+  all: inversion H; subst...
+Qed.
+
+Lemma open_tt_rec_typeN_aux : forall n T1 T2,
+  typeN n (open_tt_rec T1 T2 n) ->
+  typeN (S n) T1.
+Proof with eauto using pathN_weakening.
+  intros.
+  dependent induction H; dependent induction T1; inversion x...
+
+  destruct v0...
+  destruct (n0 == n); subst...
+  inversion H1; subst...
+  constructor. constructor...
+  inversion H; subst...
+
+  all: try destruct v...
+  all: try destruct (n0 == n); subst...
+  all: try constructor...
+  all: try solve [inversion H0; eauto];
+        try solve [inversion H1; eauto];
+        try solve [inversion H2; eauto].
+
+  all: eapply IHtypeN2;
+       replace (S n) with (n + 1) by lia...
+Qed.
+
+Lemma open_tt_rec_typeN : forall n m S T,
+  typeN n T ->
+  m >= n ->
+  T = open_tt_rec T S m.
+Proof with eauto using open_tt_rec_typeN_aux.
+  intros n m S T.
+  generalize dependent m.
+  generalize dependent n.
+  induction T; intros * H1 H2; simpl; inversion H1; inversion H; subst; f_equal...
+
+  destruct v; simpl in *...
+  destruct (n0 == m); subst...
+  inversion H3; subst...
+
+  all: eapply IHT2...
+Qed.
+
+Lemma path_to_path0 : forall p,
+  path p ->
+  pathN 0 p.
+Proof with eauto using open_pv_pathN_aux.
+  intros. dependent induction p; simpl in *; try constructor...
+  all: inversion H; subst...
+Qed.
+
+Lemma type_to_type0 : forall T,
+  type T -> typeN 0 T.
+Proof with eauto using open_tv_rec_typeN_aux, path_to_path0, open_tt_rec_typeN_aux.
+  intros. dependent induction H...
+  all: constructor; pick fresh x...
+Qed.
+
+Lemma open_tt_type_indent : forall T U k,
+  type T ->
+  T = open_tt_rec T U k.
+Proof with eauto using open_tt_rec_typeN.
+  intros.
+  apply type_to_type0 in H.
+  eapply open_tt_rec_typeN in H...
+Qed.
+
+Lemma open_tv_type_ident : forall T x k,
+  type T ->
+  open_tv_rec T x k = T.
+Proof with eauto using open_tv_rec_typeN.
+  intros. apply type_to_type0 in H.
+  eapply open_tv_rec_typeN in H...
 Qed.
 
 Lemma subst_pp_fresh : forall z p q,
@@ -123,6 +269,17 @@ Proof with eauto using subst_pp_open_pv_commute_fresh.
   intros.
   generalize dependent k.
   dependent induction T; simpl; intros; try (simpl in H0;f_equal;eauto)...
+Qed.
+
+Lemma subst_tt_open_tv_commute_fresh : forall Z S T x k,
+  type S ->
+  subst_tt Z S (open_tv_rec T x k) = open_tv_rec (subst_tt Z S T) x k.
+Proof with eauto.
+  intros. generalize dependent k.
+  dependent induction T; simpl in *; intros; try f_equal...
+  destruct v; simpl in *...
+  destruct (a == Z); try fsetdec...
+  rewrite open_tv_type_ident...
 Qed.
 
 Lemma subst_tp_open_tt_commute : forall z X k (p : pth) T,
@@ -175,133 +332,12 @@ Proof with eauto using subst_pp_open_pv_is_open_pp.
   dependent induction T; intros; simpl in *; try f_equal...
 Qed.
 
-(* fv subset lemmas *)
+(* Well-formedness *)
 
-Lemma fv_pp_sub_fv_pp_open_pv : forall p x z k,
-  z `notin` fv_pp (open_pv p x k) ->
-  z `notin` fv_pp p.
+Lemma wf_env_strengthen_head : forall E F,
+  wf_env (E ++ F) ->
+  wf_env F.
 Proof with eauto.
-  intros. dependent induction p; simpl in *; try fsetdec...
-  destruct v...
-Qed.
-
-Lemma fv_tp_sub_fv_tp_open_tv : forall T x z k,
-  z `notin` fv_tp (open_tv_rec T x k) ->
-  z `notin` fv_tp T.
-Proof with eauto using fv_pp_sub_fv_pp_open_pv.
-  intros. dependent induction T; simpl in *; try fsetdec...
-Qed.
-
-Lemma fv_tp_sub_fv_tp_open_tt : forall T x z k,
-  z `notin` fv_tp (open_tt_rec T x k) ->
-  z `notin` fv_tp T.
-Proof with eauto.
-  intros. dependent induction T; simpl in *; try fsetdec...
-Qed.
-
-Lemma fv_pp_open_pp_sub_fv_pp : forall p q k z,
-  z `notin` fv_pp p `union` fv_pp q ->
-  z `notin` fv_pp (open_pp_rec p q k).
-Proof with eauto.
-  intros. dependent induction p; simpl in *; try fsetdec...
-  destruct v...
-  destruct (n == k)...
-Qed.
-
-Lemma fv_tp_open_tp_sub_fv_tp_pp : forall T p k z,
-  z `notin` fv_tp T `union` fv_pp p ->
-  z `notin` fv_tp (open_tp_rec T p k).
-Proof with eauto using fv_pp_open_pp_sub_fv_pp.
-  intros.
-  dependent induction T; simpl in *; try fsetdec...
-Qed.
-
-(* fvars_from env *)
-
-Lemma fvar_from_env_aux :
-  (forall E,
-    wf_env E ->
-    forall z x T,
-      binds x (bind_val T) E \/ binds x (bind_typ T) E ->
-      z `notin` dom E ->
-      z `notin` fv_tp T) /\
-  (forall E T,
-    wf_typ E T ->
-    forall z,
-      z `notin` dom E ->
-      z `notin` fv_tp T) /\
-  (forall E T U,
-    sub E T U ->
-    forall z,
-      z `notin` dom E ->
-      z `notin` fv_tp T /\ z `notin` fv_tp U).
-Proof with eauto 4 using fv_tp_sub_fv_tp_open_tv, fv_tp_sub_fv_tp_open_tt.
-  apply wf_env_typ_sub_ind; intros; simpl in *...
-
-  (* wf_env *)
-  1,2: simpl in *; destruct H1; subst;
-       analyze_binds H1; eauto;
-       inversion BindsTacVal; subst...
-
-  (* wf_typ *)
-  (* 2: rename X into x. *)
-   enough (z <> x) by fsetdec;
-   eapply binds_In in b; fsetdec.
-
-  1-4: pose proof (proj1 (H _ H0)); simpl in *; fsetdec.
-
-  1-4: pick fresh x;
-       specialize (H z H1);
-       enough (z `notin` fv_tp T) by (clear - H H2; fsetdec);
-       assert (Temp: z `notin` dom ((x, bind_val S) :: E)) by (simpl; fsetdec);
-       specialize (H0 x ltac:(fsetdec) z Temp)...
-
-  (* sub *)
-  specialize (H z H1). specialize (H0 z H1).
-  split; fsetdec.
-
-  specialize (H z H0). simpl in H... pose proof (wf_env_binds_val_wf _ _ _ w b).
-
-  split; [apply binds_In in b; fsetdec | apply (H z x T); eauto].
-
-  1,2: destruct (H z H0); simpl in *; fsetdec.
-
-  1,2: destruct (H z H0); split; try fsetdec; eapply fv_tp_open_tp_sub_fv_tp_pp; simpl; fsetdec.
-
-
-  (* sub_fun, sub_tfun, sub_pair, sub_tpair *)
-  1,2:
-  pick fresh x;
-  assert (ZNotIn: z `notin` dom ((x, bind_val S2) :: E))
-      by (destruct_notin; clear - H2 NotInTac; simpl; fsetdec); simpl in ZNotIn;
-  destruct (H1 x ltac:(fsetdec) z ZNotIn) as [T1Open T2Open];
-  destruct (H z H2) as [NotinS2 NotinS1].
-  3,4:
-  pick fresh x;
-  assert (z `notin` dom ((x, bind_val S2) :: E))
-      by (destruct_notin; clear - H1 NotInTac; simpl; fsetdec);
-   destruct (H0 x ltac:(fsetdec) z H2) as [T1Open T2Open];
-   destruct (H z H1) as [NotinS2 NotinS1].
-
-  1,3,4: apply fv_tp_sub_fv_tp_open_tv in T1Open;
-     apply fv_tp_sub_fv_tp_open_tv in T2Open...
-
-   apply fv_tp_sub_fv_tp_open_tt in T1Open;
-   apply fv_tp_sub_fv_tp_open_tt in T2Open...
-Qed.
-
-Lemma wf_typ_fvar_from_env : forall E T z,
-  wf_typ E T ->
-  z `notin` dom E ->
-  z `notin` fv_tp T.
-Proof with eauto.
-  intros. apply (proj2 fvar_from_env_aux) with (E := E)...
-Qed.
-
-Lemma sub_fvar_from_env : forall E T U z,
-  sub E T U ->
-  z `notin` dom E ->
-  z `notin` fv_tp T /\ z `notin` fv_tp U.
-Proof with eauto.
-  intros. apply (proj2 fvar_from_env_aux) with (E := E)...
+  intros. dependent induction E...
+  simpl in H. inversion H; subst...
 Qed.

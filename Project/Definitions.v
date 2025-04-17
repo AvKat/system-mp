@@ -153,10 +153,12 @@ Inductive type : typ -> Prop :=
   | type_top : type typ_top
   | type_bot : type typ_bot
   | type_arr : forall T1 T2 L,
+      type T1 ->
       (forall x, x `notin` L -> type (open_tv T2 x)) ->
       type (typ_arr T1 T2)
   | type_all : forall T1 T2 L,
-      (forall X, X `notin` L -> type (open_tv T2 X)) ->
+      type T1 ->
+      (forall X, X `notin` L -> type (open_tt T2 (typ_tvar X))) ->
       type (typ_all T1 T2)
   | type_path : forall p, path p -> type p
   | type_path_Snd : forall p, path p -> type (typ_path_Snd p)
@@ -207,19 +209,19 @@ Inductive wf_typ : env -> typ -> Prop :=
       binds X (bind_typ T) E ->
       wf_typ E (typ_tvar X)
   | w_fst : forall (p: pth) S T E,
-      (* wf_typ E p -> *)
+      path p ->
       sub E p (typ_pair S T) ->
       wf_typ E (pth_proj1 p)
   | w_tfst : forall (p: pth) S T E,
-      (* wf_typ E p -> *)
+      path p ->
       sub E p (typ_tpair S T) ->
       wf_typ E (pth_proj1 p)
   | w_snd : forall (p: pth) S T E,
-      (* wf_typ E p -> *)
+      path p ->
       sub E p (typ_pair S T) ->
       wf_typ E (pth_proj2 p)
   | w_tsnd : forall E (p : pth) S T,
-      (* wf_typ E p -> *)
+      path p ->
       sub E p (typ_tpair S T) ->
       wf_typ E (typ_path_Snd p)
   | w_top : forall E,

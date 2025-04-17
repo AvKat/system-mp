@@ -15,8 +15,9 @@ Meta/Metatheory.v
 Meta/MetatheoryAtom.v
 CpdtTactics.v
 Project/Definitions.v
-Project/Helpers.v
 Project/Infrastructure.v
+Project/Core.v
+Project/Helpers.v
 Project/Narrowing.v
 Project/Inversion.v
 Project/SubstitutionAndRegularity.v
