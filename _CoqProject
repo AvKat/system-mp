@@ -17,7 +17,7 @@ CpdtTactics.v
 Project/Definitions.v
 Project/Infrastructure.v
 Project/Core.v
-Project/Helpers.v
 Project/Narrowing.v
+Project/Helpers.v
 Project/Inversion.v
 Project/SubstitutionAndRegularity.v
