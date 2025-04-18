@@ -18,6 +18,14 @@ Qed.
 
 Hint Resolve wf_env_uniq : core.
 
+Lemma wf_env_strengthen_head : forall E F,
+  wf_env (E ++ F) ->
+  wf_env F.
+Proof with eauto.
+  intros. dependent induction E...
+  simpl in H. inversion H; subst...
+Qed.
+
 (* Lemma 1.1 *)
 Theorem env_binds_equal_var : forall E x U T,
   wf_env E ->

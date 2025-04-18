@@ -4,7 +4,7 @@ Require Import Lia.
 
 Lemma open_pp_path_ident : forall p q k,
   path p ->
-  open_pp_rec p q k = p.
+  open_pp p q k = p.
 Proof with eauto.
   intros. dependent induction p; simpl in *; try f_equal...
   destruct v... inversion H...
@@ -12,17 +12,7 @@ Proof with eauto.
   inversion H...
 Qed.
 
-Lemma open_pv_path_ident : forall p x k,
-  path p ->
-  open_pv p x k = p.
-Proof with eauto.
-  intros. dependent induction p; simpl in *; try f_equal...
-  destruct v... inversion H...
-  inversion H...
-  inversion H...
-Qed.
-
-(* Machinery for open_tv_type_ident *)
+(* Machinery for open_tp_type_ident *)
 
 Hint Extern 1 => lia : core.
 
@@ -105,8 +95,8 @@ Proof with eauto using varN_weakening, pathN_weakening.
   all: apply IHtypeN2; lia.
 Qed.
 
-Lemma open_pv_pathN_aux : forall n x p,
-  pathN n (open_pv p x n) ->
+Lemma open_pp_pathN_aux : forall n x p,
+  pathN n (open_pp p x n) ->
   pathN (S n) p.
 Proof with eauto.
   intros. generalize dependent n.
@@ -115,10 +105,10 @@ Proof with eauto.
   all: inversion H; subst; inversion H4; subst...
 Qed.
 
-Lemma open_tv_rec_typeN_aux : forall n x T,
-  typeN n (open_tv_rec T x n) ->
+Lemma open_tp_rec_typeN_aux : forall n x T,
+  typeN n (open_tp_rec T x n) ->
   typeN (S n) T.
-Proof with eauto using open_pv_pathN_aux.
+Proof with eauto using open_pp_pathN_aux.
   intros. generalize dependent n.
   dependent induction T; intros; simpl in *; inversion H; subst...
   inversion H2; subst...
@@ -126,11 +116,11 @@ Proof with eauto using open_pv_pathN_aux.
   all: apply IHT2; replace (n + 1) with (S n) in H4 by lia...
 Qed.
 
-Lemma open_pv_pathN : forall n m v p,
+Lemma open_pp_pathN : forall n m v p,
   pathN n p ->
   m >= n ->
-  p = open_pv p v m.
-Proof with eauto using open_pv_pathN_aux, pathN_weakening.
+  p = open_pp p v m.
+Proof with eauto using open_pp_pathN_aux, pathN_weakening.
   intros.
   generalize dependent m.
   generalize dependent n.
@@ -144,11 +134,11 @@ Proof with eauto using open_pv_pathN_aux, pathN_weakening.
   all: inversion H...
 Qed.
 
-Lemma open_tv_rec_typeN : forall n m v T,
+Lemma open_tp_rec_typeN : forall n m v T,
   typeN n T ->
   m >= n ->
-  T = open_tv_rec T v m.
-Proof with eauto using open_tv_rec_typeN_aux, typeN_weakening, open_pv_pathN.
+  T = open_tp_rec T v m.
+Proof with eauto using open_tp_rec_typeN_aux, typeN_weakening, open_pp_pathN.
   intros.
   generalize dependent m.
   generalize dependent n.
@@ -200,14 +190,14 @@ Qed.
 Lemma path_to_path0 : forall p,
   path p ->
   pathN 0 p.
-Proof with eauto using open_pv_pathN_aux.
+Proof with eauto using open_pp_pathN_aux.
   intros. dependent induction p; simpl in *; try constructor...
   all: inversion H; subst...
 Qed.
 
 Lemma type_to_type0 : forall T,
   type T -> typeN 0 T.
-Proof with eauto using open_tv_rec_typeN_aux, path_to_path0, open_tt_rec_typeN_aux.
+Proof with eauto using open_tp_rec_typeN_aux, path_to_path0, open_tt_rec_typeN_aux.
   intros. dependent induction H...
   all: constructor; pick fresh x...
 Qed.
@@ -221,13 +211,22 @@ Proof with eauto using open_tt_rec_typeN.
   eapply open_tt_rec_typeN in H...
 Qed.
 
-Lemma open_tv_type_ident : forall T x k,
+Lemma open_tp_type_ident : forall T x k,
   type T ->
-  open_tv_rec T x k = T.
-Proof with eauto using open_tv_rec_typeN.
+  open_tp_rec T x k = T.
+Proof with eauto.
   intros. apply type_to_type0 in H.
-  eapply open_tv_rec_typeN in H...
+  eapply open_tp_rec_typeN in H...
 Qed.
+
+Lemma subst_pp_path : forall z p q,
+   path p ->
+   path q ->
+   path (subst_pp z p q).
+ Proof with eauto.
+   intros. dependent induction H0; simpl...
+   destruct (x == z)...
+ Qed.
 
 Lemma subst_pp_fresh : forall z p q,
   z `notin` fv_pp q ->
@@ -246,10 +245,19 @@ Proof with eauto using subst_pp_fresh.
   intros. dependent induction T; simpl in *; try f_equal...
 Qed.
 
-Lemma subst_pp_open_pv_commute_fresh : forall z x (p q: pth) k,
+Lemma subst_tt_fresh : forall Z S T,
+  Z `notin` fv_tt T ->
+  subst_tt Z S T = T.
+Proof with eauto using subst_pp_fresh.
+  intros. dependent induction T; simpl in *; try f_equal...
+  destruct v; simpl in *...
+  destruct (a == Z); try fsetdec.
+Qed.
+
+Lemma subst_pp_open_pp_commute_fresh : forall z x (p q: pth) k,
   path p ->
   x `notin` fv_pp q `union` {{ z }} ->
-  subst_pp z p (open_pv q x k) = open_pv (subst_pp z p q) x k.
+  subst_pp z p (open_pp q x k) = open_pp (subst_pp z p q) x k.
 Proof with eauto.
   intros. generalize dependent k.
   dependent induction q; simpl in *; intros; try f_equal...
@@ -258,28 +266,41 @@ Proof with eauto.
     simpl...
     destruct (x == z); try fsetdec.
   - destruct (a == z)...
-    rewrite open_pv_path_ident...
+    rewrite open_pp_path_ident...
 Qed.
 
-Lemma subst_tp_open_tv_commute_fresh : forall z k x (p: pth) T,
+Lemma subst_tp_open_tp_commute_fresh : forall z k x (p: pth) T,
   path p ->
   x `notin` fv_tp T `union` {{ z }} ->
-  subst_tp z p (open_tv_rec T x k) = open_tv_rec (subst_tp z p T) x k.
-Proof with eauto using subst_pp_open_pv_commute_fresh.
+  subst_tp z p (open_tp_rec T x k) = open_tp_rec (subst_tp z p T) x k.
+Proof with eauto using subst_pp_open_pp_commute_fresh.
   intros.
   generalize dependent k.
   dependent induction T; simpl; intros; try (simpl in H0;f_equal;eauto)...
 Qed.
 
-Lemma subst_tt_open_tv_commute_fresh : forall Z S T x k,
+Lemma subst_tt_open_tp_commute_fresh : forall Z S T x k,
   type S ->
-  subst_tt Z S (open_tv_rec T x k) = open_tv_rec (subst_tt Z S T) x k.
+  subst_tt Z S (open_tp_rec T x k) = open_tp_rec (subst_tt Z S T) x k.
 Proof with eauto.
   intros. generalize dependent k.
   dependent induction T; simpl in *; intros; try f_equal...
   destruct v; simpl in *...
   destruct (a == Z); try fsetdec...
-  rewrite open_tv_type_ident...
+  rewrite open_tp_type_ident...
+Qed.
+
+Lemma subst_tt_open_tt_commute_fresh : forall Z S T X k,
+  type S ->
+  X `notin` fv_tt T `union` {{ Z }} ->
+  subst_tt Z S (open_tt_rec T (typ_tvar X) k) = open_tt_rec (subst_tt Z S T) (typ_tvar X) k.
+Proof with eauto using open_tt_type_indent.
+  intros. generalize dependent k.
+  dependent induction T; simpl in *; intros; try f_equal...
+  destruct v; simpl in *...
+  - destruct (n == k); simpl...
+    destruct (X == Z); try fsetdec...
+  - destruct (a == Z); try fsetdec...
 Qed.
 
 Lemma subst_tp_open_tt_commute : forall z X k (p : pth) T,
@@ -293,7 +314,7 @@ Qed.
 
 Lemma subst_pp_open_pp_commute : forall z k (p q : pth) T,
   path p ->
-  subst_pp z p (open_pp_rec T q k) = open_pp_rec (subst_pp z p T) (subst_pp z p q) k.
+  subst_pp z p (open_pp T q k) = open_pp (subst_pp z p T) (subst_pp z p q) k.
 Proof with eauto.
   intros. generalize dependent k.
   dependent induction T; simpl; intros; try f_equal...
@@ -311,9 +332,10 @@ Proof with eauto using subst_pp_open_pp_commute.
   dependent induction T; simpl; intros; try f_equal...
 Qed.
 
-Lemma subst_pp_open_pv_is_open_pp : forall z p q k,
+
+Lemma subst_pp_open_pp_is_open_pp : forall z p q k,
   z `notin` fv_pp q ->
-  subst_pp z p (open_pv q z k) = open_pp_rec q p k.
+  subst_pp z p (open_pp q z k) = open_pp q p k.
 Proof with eauto.
   intros. generalize dependent k.
   dependent induction q; intros; simpl; try f_equal...
@@ -324,20 +346,23 @@ Proof with eauto.
   - destruct (a == z); try fsetdec.
 Qed.
 
-Lemma subst_tp_open_tv_is_open_tp : forall z p T k,
+Lemma subst_tp_open_tp_is_open_tp : forall z p T k,
   z `notin` fv_tp T ->
-  subst_tp z p (open_tv_rec T z k) = open_tp_rec T p k.
-Proof with eauto using subst_pp_open_pv_is_open_pp.
+  subst_tp z p (open_tp_rec T z k) = open_tp_rec T p k.
+Proof with eauto using subst_pp_open_pp_is_open_pp.
   intros. generalize dependent k.
   dependent induction T; intros; simpl in *; try f_equal...
 Qed.
 
-(* Well-formedness *)
-
-Lemma wf_env_strengthen_head : forall E F,
-  wf_env (E ++ F) ->
-  wf_env F.
+Lemma subst_tt_open_tt_is_open_tt : forall Z S T k,
+  Z `notin` fv_tt T ->
+  subst_tt Z S (open_tt_rec T (typ_tvar Z) k) = open_tt_rec T S k.
 Proof with eauto.
-  intros. dependent induction E...
-  simpl in H. inversion H; subst...
+  intros. generalize dependent k.
+  dependent induction T; intros; simpl in *; try f_equal...
+  destruct v; simpl in *...
+  - destruct (n == k); simpl...
+    destruct (Z == Z); try fsetdec...
+  - destruct (a == Z); try fsetdec.
 Qed.
+

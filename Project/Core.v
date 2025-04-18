@@ -55,18 +55,18 @@ Hint Resolve sub_env_wf wf_typ_env_wf typing_env_wf typed_path_wf wf_pth_path su
 
 (* Free variables *)
 
-Lemma fv_pp_sub_fv_pp_open_pv : forall p x z k,
-  z `notin` fv_pp (open_pv p x k) ->
+Lemma fv_pp_sub_fv_pp_open_pp : forall p x z k,
+  z `notin` fv_pp (open_pp p x k) ->
   z `notin` fv_pp p.
 Proof with eauto.
   intros. dependent induction p; simpl in *; try fsetdec...
   destruct v...
 Qed.
 
-Lemma fv_tp_sub_fv_tp_open_tv : forall T x z k,
-  z `notin` fv_tp (open_tv_rec T x k) ->
+Lemma fv_tp_sub_fv_tp_open_tp : forall T x z k,
+  z `notin` fv_tp (open_tp_rec T x k) ->
   z `notin` fv_tp T.
-Proof with eauto using fv_pp_sub_fv_pp_open_pv.
+Proof with eauto using fv_pp_sub_fv_pp_open_pp.
   intros. dependent induction T; simpl in *; try fsetdec...
 Qed.
 
@@ -77,8 +77,8 @@ Proof with eauto.
   intros. dependent induction T; simpl in *; try fsetdec...
 Qed.
 
-Lemma fv_tt_sub_fv_tt_open_tv : forall T x z k,
-  z `notin` fv_tt (open_tv_rec T x k) ->
+Lemma fv_tt_sub_fv_tt_open_tp : forall T x z k,
+  z `notin` fv_tt (open_tp_rec T x k) ->
   z `notin` fv_tt T.
 Proof with eauto.
   intros. dependent induction T; simpl in *; try fsetdec...
@@ -94,7 +94,7 @@ Qed.
 
 Lemma fv_pp_open_pp_sub_fv_pp : forall p q k z,
   z `notin` fv_pp p `union` fv_pp q ->
-  z `notin` fv_pp (open_pp_rec p q k).
+  z `notin` fv_pp (open_pp p q k).
 Proof with eauto.
   intros. dependent induction p; simpl in *; try fsetdec...
   destruct v...
@@ -136,7 +136,7 @@ Lemma fvar_from_env_aux :
     forall z,
       z `notin` dom E ->
       z `notin` fv_tp T /\ z `notin` fv_tp U /\ z `notin` fv_tt T /\ z `notin` fv_tt U).
-Proof with eauto 4 using fv_tp_sub_fv_tp_open_tv, fv_tp_sub_fv_tp_open_tt, fv_tt_sub_fv_tt_open_tv, fv_tt_sub_fv_tt_open_tt.
+Proof with eauto 4  using fv_tp_sub_fv_tp_open_tp, fv_tp_sub_fv_tp_open_tt, fv_tt_sub_fv_tt_open_tp, fv_tt_sub_fv_tt_open_tt.
   apply wf_env_typ_sub_ind; intros; simpl in *...
 
   (* wf_env *)
@@ -199,10 +199,10 @@ Proof with eauto 4 using fv_tp_sub_fv_tp_open_tv, fv_tp_sub_fv_tp_open_tt, fv_tt
    destruct (H z H1) as [NotinS2Tp [NotinS1Tp [NotinS2Tt NotinS1Tt]]].
 
   1,3,4:
-  apply fv_tp_sub_fv_tp_open_tv in NotInT1OpenTp;
-  apply fv_tp_sub_fv_tp_open_tv in NotInT2OpenTp;
-  apply fv_tt_sub_fv_tt_open_tv in NotInT1OpenTt;
-  apply fv_tt_sub_fv_tt_open_tv in NotInT2OpenTt...
+  apply fv_tp_sub_fv_tp_open_tp in NotInT1OpenTp;
+  apply fv_tp_sub_fv_tp_open_tp in NotInT2OpenTp;
+  apply fv_tt_sub_fv_tt_open_tp in NotInT1OpenTt;
+  apply fv_tt_sub_fv_tt_open_tp in NotInT2OpenTt...
 
   apply fv_tp_sub_fv_tp_open_tt in NotInT1OpenTp;
   apply fv_tp_sub_fv_tp_open_tt in NotInT2OpenTp;

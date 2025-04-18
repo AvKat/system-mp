@@ -1,5 +1,5 @@
 Require Export SystemMP.Project.Infrastructure.
-Require Export SystemMP.Project.Helpers.
+Require Export SystemMP.Project.Core.
 Require Import Coq.Program.Equality.
 Import ListNotations.
 
