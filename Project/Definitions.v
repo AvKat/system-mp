@@ -253,7 +253,6 @@ with sub : env -> typ -> typ -> Prop :=
       path p ->
       sub E p (typ_tpair S T) ->
       sub E (pth_proj1 p) S
-  (* TODO: Confim the next two rules *)
   | sub_snd : forall E (p : pth) S T,
       path p ->
       sub E p (typ_pair S T) ->

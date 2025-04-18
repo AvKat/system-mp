@@ -57,8 +57,6 @@ Proof.
   all: analyze_binds H2; analyze_binds H3.
 Qed.
 
-(* NOTE: Lemma 1.2 is a runtime lemma that is tentatively skipped  *)
-
 Lemma app_nil_means_nil : forall A (l1 l2 : list A),
   l1 ++ l2 = nil ->
   l1 = nil /\ l2 = nil.
