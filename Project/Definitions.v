@@ -65,18 +65,6 @@ Fixpoint open_tp_rec (T : typ) (p : pth) (k : nat) : typ :=
   | typ_path_Snd p' => typ_path_Snd (open_pp p' p k)
   end.
 
-Fixpoint open_ep_rec (E : exp) (p: pth) (k : nat) : exp :=
-  match E with
-  | exp_path p' => exp_path (open_pp p' p k)
-  | exp_app p1 p2 => exp_app (open_pp p1 p k) (open_pp p2 p k)
-  | exp_tapp p T => exp_tapp (open_pp p p k) (open_tp_rec T p k)
-  | exp_abs T e => exp_abs (open_tp_rec T p k) (open_ep_rec e p (k+1))
-  | exp_tabs T e => exp_tabs (open_tp_rec T p k) (open_ep_rec e p (k+1))
-  | exp_let e1 e2 => exp_let (open_ep_rec e1 p k) (open_ep_rec e2 p (k+1))
-  | exp_pair _ _ => E
-  | exp_tpair x T => exp_tpair x (open_tp_rec T p k)
-  end.
-
 (* Open with a type *)
 
 Fixpoint open_tt_rec (T : typ) (U : typ) (k : nat) : typ :=
@@ -95,29 +83,28 @@ Fixpoint open_tt_rec (T : typ) (U : typ) (k : nat) : typ :=
 
 (* Open with a variable *)
 
-Fixpoint open_pv (P : pth) (V : var) (k : nat) : pth :=
-  match P with
-  | pth_var (var_b n) => if n === k then (pth_var V) else P
-  | pth_var (var_f _) => P
-  | pth_proj1 p => pth_proj1 (open_pv p V k)
-  | pth_proj2 p => pth_proj2 (open_pv p V k)
+Definition open_vv (x : var) (V : var) (k : nat) : var :=
+  match x with
+  | var_f _ => x
+  | var_b n => if n === k then V else x
   end.
 
-Fixpoint open_ev_rec (E : exp) (V: var) (k : nat) : exp :=
+Fixpoint open_ev_rec (E : exp) (V : var) (k : nat) : exp :=
   match E with
-  | exp_path p => exp_path (open_pv p V k)
-  | exp_app p1 p2 => exp_app (open_pv p1 V k) (open_pv p2 V k)
-  | exp_tapp p T => exp_tapp (open_pv p V k) (open_tp_rec T V k)
-  | exp_abs T t => exp_abs (open_tp_rec T V k) (open_ev_rec t V (k+1))
-  | exp_tabs T t => exp_tabs (open_tp_rec T V k) (open_ev_rec t V (k+1))
-  | exp_let x t => exp_let (open_ev_rec x V k) (open_ev_rec t V (k+1))
-  | _ => E
+  | exp_path p => exp_path (open_pp p V k)
+  | exp_app p1 p2 => exp_app (open_pp p1 V k) (open_pp p2 V k)
+  | exp_tapp p T => exp_tapp (open_pp p V k) (open_tp_rec T V k)
+  | exp_abs T e => exp_abs (open_tp_rec T V k) (open_ev_rec e V (k+1))
+  | exp_tabs T e => exp_tabs (open_tp_rec T V k) (open_ev_rec e V (k+1))
+  | exp_pair x y => exp_pair (open_vv x V k) (open_vv y V k)
+  | exp_tpair x T => exp_tpair (open_vv x V k) (open_tp_rec T V k)
+  | exp_let e1 e2 => exp_let (open_ev_rec e1 V k) (open_ev_rec e2 V (k+1))
   end.
 
 (* Definition open_pp p q := open_pp_rec p q 0. *)
 Definition open_tp T p := open_tp_rec T p 0.
 Definition open_tt (T : typ) (U : typ) : typ := open_tt_rec T U 0.
-Definition open_ev (E : exp) (V : var) := open_ev_rec E V 0.
+Definition open_ev (e : exp) (V : var) := open_ev_rec e V 0.
 
 Inductive path : pth -> Prop :=
   | path_var : forall (x: atom), path (pth_var x)
@@ -388,6 +375,36 @@ Fixpoint subst_tt (z : atom) (U : typ) (T : typ) {struct T} : typ :=
   | typ_path_Snd _ => T
   end.
 
+Definition subst_vv (z : atom) (V : var) (x : var) : var :=
+  match x with
+  | var_f y => if y == z then V else x
+  | var_b n => x
+  end.
+
+Fixpoint subst_ev (z : atom) (V : var) (e : exp) {struct e} : exp :=
+  match e with
+  | exp_path p => exp_path (subst_pp z V p)
+  | exp_app p1 p2 => exp_app (subst_pp z V p1) (subst_pp z V p2)
+  | exp_tapp p T => exp_tapp (subst_pp z V p) (subst_tp z V T)
+  | exp_abs T e => exp_abs (subst_tp z V T) (subst_ev z V e)
+  | exp_tabs T e => exp_tabs (subst_tp z V T) (subst_ev z V e)
+  | exp_pair x y => exp_pair (subst_vv z V x) (subst_vv z V y)
+  | exp_tpair x T => exp_tpair (subst_vv z V x) (subst_tp z V T)
+  | exp_let e1 e2 => exp_let (subst_ev z V e1) (subst_ev z V e2)
+  end.
+
+Fixpoint subst_et (z : atom) (T : typ) (e : exp) {struct e} : exp :=
+  match e with
+  | exp_path _ => e
+  | exp_app _ _ => e
+  | exp_tapp p T' => exp_tapp p (subst_tt z T T')
+  | exp_abs T' e => exp_abs (subst_tt z T T') (subst_et z T e)
+  | exp_tabs T' e => exp_tabs (subst_tt z T T') (subst_et z T e)
+  | exp_pair x y => exp_pair x y
+  | exp_tpair x T' => exp_tpair x (subst_tt z T T')
+  | exp_let e1 e2 => exp_let (subst_et z T e1) (subst_et z T e2)
+  end.
+
 Definition subst_bp (z : atom) (p : pth) (b : binding) : binding :=
   match b with
   | bind_typ T => bind_typ (subst_tp z p T)
@@ -399,12 +416,18 @@ Definition subst_bt (z : atom) (T : typ) (b : binding) : binding :=
   | bind_typ T' => bind_typ (subst_tt z T T')
   | bind_val T' => bind_val (subst_tt z T T')
   end.
+
 (* Free variables *)
+
+Definition fv_vv (x : var) : atoms :=
+  match x with
+  | var_f y => singleton y
+  | var_b n => {}
+  end.
 
 Fixpoint fv_tt (T : typ) : atoms :=
   match T with
-  | typ_tvar (var_f x) => singleton x
-  | typ_tvar (var_b _) => {}
+  | typ_tvar v => fv_vv v
   | typ_top => {}
   | typ_bot => {}
   | typ_arr T1 T2 => (fv_tt T1) `union` (fv_tt T2)
@@ -417,8 +440,7 @@ Fixpoint fv_tt (T : typ) : atoms :=
 
 Fixpoint fv_pp (p : pth) : atoms :=
   match p with
-  | pth_var (var_f x) => singleton x
-  | pth_var (var_b _) => {}
+  | pth_var v => fv_vv v
   | pth_proj1 p => fv_pp p
   | pth_proj2 p => fv_pp p
   end.
@@ -436,6 +458,18 @@ Fixpoint fv_tp (T : typ) : atoms :=
   | typ_path_Snd p => fv_pp p
   end.
 
+Fixpoint fv_ep (e : exp) : atoms :=
+  match e with
+  | exp_path p => fv_pp p
+  | exp_app p1 p2 => (fv_pp p1) `union` (fv_pp p2)
+  | exp_tapp p T => (fv_pp p) `union` (fv_tp T)
+  | exp_abs T e => (fv_tp T) `union` (fv_ep e)
+  | exp_tabs T e => (fv_tp T) `union` (fv_ep e)
+  | exp_pair x y => fv_vv x `union` fv_vv y
+  | exp_tpair x T => fv_vv x `union` (fv_tp T)
+  | exp_let e1 e2 => (fv_ep e1) `union` (fv_ep e2)
+  end.
+
 (* Tactics *)
 
 Ltac gather_atoms :=
@@ -444,7 +478,8 @@ Ltac gather_atoms :=
   let C := gather_atoms_with (fun x : env => dom x) in
   let D := gather_atoms_with (fun x : typ => fv_tt x) in
   let E := gather_atoms_with (fun x : typ => fv_tp x) in
-  constr:(A `union` B `union` C `union` D `union` E).
+  let F := gather_atoms_with (fun x : exp => fv_ep x) in
+  constr:(A `union` B `union` C `union` D `union` E `union` F).
 
 Tactic Notation "pick" "fresh" ident(x) :=
   let L := gather_atoms in (pick fresh x for L).

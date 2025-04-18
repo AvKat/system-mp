@@ -233,7 +233,7 @@ Lemma subst_pp_fresh : forall z p q,
   subst_pp z p q = q.
 Proof with eauto.
   intros. dependent induction q; simpl in *; try f_equal...
-  destruct v...
+  destruct v; simpl in *...
   destruct (a == z)...
   fsetdec.
 Qed.
@@ -303,13 +303,15 @@ Proof with eauto using open_tt_type_indent.
   - destruct (a == Z); try fsetdec...
 Qed.
 
-Lemma subst_tp_open_tt_commute : forall z X k (p : pth) T,
-  subst_tp z p (open_tt_rec T (typ_tvar X) k) = open_tt_rec (subst_tp z p T) (typ_tvar X) k.
+Lemma subst_tp_open_tt_commute_fresh : forall z k (p : pth) T R,
+  z `notin` fv_tp R ->
+  subst_tp z p (open_tt_rec T R k) = open_tt_rec (subst_tp z p T) R k.
 Proof with eauto.
   intros. generalize dependent k.
   dependent induction T; simpl; intros; try f_equal...
   destruct v; simpl in *...
   destruct (n == k)...
+  rewrite subst_tp_fresh...
 Qed.
 
 Lemma subst_pp_open_pp_commute : forall z k (p q : pth) T,
@@ -332,6 +334,27 @@ Proof with eauto using subst_pp_open_pp_commute.
   dependent induction T; simpl; intros; try f_equal...
 Qed.
 
+Lemma subst_tp_open_tt_commute : forall z k (p : pth) T R,
+  path p ->
+  subst_tp z p (open_tt_rec T R k) = open_tt_rec (subst_tp z p T) (subst_tp z p R) k.
+Proof with eauto using subst_pp_open_pp_commute.
+  intros. generalize dependent k.
+  dependent induction T; simpl; intros; try f_equal...
+  destruct v; simpl in *...
+  destruct (n == k)...
+Qed.
+
+Lemma subst_tt_open_tt_commute : forall Z S T R k,
+  type S ->
+  subst_tt Z S (open_tt_rec T R k) = open_tt_rec (subst_tt Z S T) (subst_tt Z S R) k.
+Proof with eauto.
+  intros. generalize dependent k.
+  dependent induction T; simpl; intros; try f_equal...
+  destruct v; simpl in *...
+  - destruct (n == k); simpl...
+  - destruct (a == Z); try fsetdec.
+    rewrite <- open_tt_type_indent...
+Qed.
 
 Lemma subst_pp_open_pp_is_open_pp : forall z p q k,
   z `notin` fv_pp q ->
@@ -366,3 +389,31 @@ Proof with eauto.
   - destruct (a == Z); try fsetdec.
 Qed.
 
+Lemma subst_vv_open_vv_commute_fresh : forall z (x: atom) v y k,
+  y `notin` {{ z }} ->
+  subst_vv z x (open_vv v y k) = open_vv (subst_vv z x v) y k.
+Proof with eauto.
+  intros. generalize dependent k.
+  dependent induction v; simpl; intros; try f_equal...
+  - destruct (n == k)...
+    simpl...
+    destruct (y == z); try fsetdec.
+  - destruct (a == z); try fsetdec.
+Qed.
+
+Lemma subst_ev_open_ev_commute_fresh : forall z (x y : atom) e k,
+  y `notin` fv_ep e `union` {{ z }} ->
+  subst_ev z x (open_ev_rec e y k) = open_ev_rec (subst_ev z x e) y k.
+Proof with eauto using subst_pp_open_pp_commute_fresh, subst_tp_open_tp_commute_fresh, subst_vv_open_vv_commute_fresh.
+  intros. generalize dependent k.
+  dependent induction e; simpl in *; intros; try f_equal...
+Qed.
+
+Lemma subst_et_open_ev_commute_fresh : forall Z S e x k,
+  type S ->
+  subst_et Z S (open_ev_rec e x k) = open_ev_rec (subst_et Z S e) x k.
+Proof with eauto.
+  intros. generalize dependent k.
+  dependent induction e; simpl in *; intros; try f_equal...
+  all: rewrite subst_tt_open_tp_commute_fresh...
+Qed.
