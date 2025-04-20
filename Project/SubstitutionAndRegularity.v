@@ -490,16 +490,6 @@ Proof with eauto 4 using wf_env_subst_path, wf_typ_subst_path, sub_subst_path.
     eapply (H2 x' ltac:(fsetdec) ((x', bind_val S0) :: E) F z S ltac:(reflexivity))...
 Qed.
 
-Lemma subst_et_open_ev_commute_fresh : forall Z S e x k,
-  type S ->
-  subst_et Z S (open_ev_rec e x k) = open_ev_rec (subst_et Z S e) x k.
-Admitted.
-
-Lemma subst_tt_open_tt_commute : forall Z S T R k,
-  type S ->
-  subst_tt Z S (open_tt_rec T R k) = open_tt_rec (subst_tt Z S T) (subst_tt Z S R) k.
-Admitted.
-
 (* ------------------------------ Lemma 6.8 ------------------------------ *)
 Theorem typing_subst_type : forall E F Z S S' t T,
   typing (E ++ (Z, bind_typ S) :: F) t T ->
