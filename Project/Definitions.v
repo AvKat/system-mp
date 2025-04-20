@@ -134,25 +134,6 @@ Inductive type : typ -> Prop :=
       (forall x, x `notin` L -> type (open_tp T2 x)) ->
       type (typ_tpair T1 T2).
 
-Inductive expr : exp -> Prop :=
-  | expr_path : forall p, path p -> expr (exp_path p)
-  | expr_app : forall p1 p2, path p1 -> path p2 -> expr (exp_app p1 p2)
-  | expr_tapp : forall p T, path p -> type T -> expr (exp_tapp p T)
-  | expr_abs : forall T e L,
-      type T ->
-      (forall x, x `notin` L -> expr (open_ev e x)) ->
-      expr (exp_abs T e)
-  | expr_tabs : forall T e L,
-      type T ->
-      (forall X, X `notin` L -> expr (open_ev e X)) ->
-      expr (exp_tabs T e)
-  | expr_vpair : forall x y, expr (exp_pair x y)
-  | expr_tpair : forall x T, type T -> expr (exp_tpair x T)
-  | expr_let : forall e1 e2 L,
-      expr e1 ->
-      (forall x, x `notin` L -> expr (open_ev e2 x)) ->
-      expr (exp_let e1 e2).
-
 (* Defining environments, well-formdness and subtyping *)
 
 Inductive binding : Set :=
@@ -246,20 +227,15 @@ with sub : env -> typ -> typ -> Prop :=
       binds X (bind_typ T) E ->
       sub E (typ_tvar X) T
   | sub_fst : forall E (p : pth) S T,
-      path p ->
       sub E p (typ_pair S T) ->
       sub E (pth_proj1 p) S
   | sub_tfst : forall E (p : pth) S T,
-      path p ->
       sub E p (typ_tpair S T) ->
       sub E (pth_proj1 p) S
-  (* TODO: Confim the next two rules *)
   | sub_snd : forall E (p : pth) S T,
-      path p ->
       sub E p (typ_pair S T) ->
       sub E (pth_proj2 p) (open_tp T (pth_proj1 p))
   | sub_tsnd : forall E (p : pth) S T,
-      path p ->
       sub E p (typ_tpair S T) ->
       sub E (typ_path_Snd p) (open_tp T (pth_proj1 p))
   | sub_bot : forall E T,
@@ -330,7 +306,7 @@ Inductive typing : env -> exp -> typ -> Prop :=
       (forall x, x `notin` L -> typing ((x, bind_val S) :: E) (open_ev e2 x) (open_tp T x)) ->
       typing E (exp_let e1 e2) T.
 
-Hint Constructors path type expr wf_typ wf_env sub typing : core.
+Hint Constructors path type wf_typ wf_env sub typing : core.
 
 Scheme wf_env_all_mutind := Induction for wf_env Sort Prop
   with wf_typ_all_mutind := Induction for wf_typ Sort Prop
