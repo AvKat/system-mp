@@ -260,7 +260,7 @@ Qed.
 
 (* ------------------------------ Lemma 3.5 ------------------------------ *)
 
-Theorem typing_narrowing_val : forall E F z S S' e T,
+Theorem typing_narrow_val : forall E F z S S' e T,
   typing (E ++ (z, bind_val S) :: F) e T ->
   sub F S' S ->
   wf_env (E ++ (z, bind_val S') :: F) ->
@@ -306,7 +306,7 @@ Qed.
 
 (* ------------------------------ Lemma 3.6 ------------------------------ *)
 
-Theorem typing_narrowing_typ : forall E F z S S' e T,
+Theorem typing_narrow_typ : forall E F z S S' e T,
   typing (E ++ (z, bind_typ S) :: F) e T ->
   sub F S' S ->
   wf_env (E ++ (z, bind_typ S') :: F) ->
