@@ -227,19 +227,15 @@ with sub : env -> typ -> typ -> Prop :=
       binds X (bind_typ T) E ->
       sub E (typ_tvar X) T
   | sub_fst : forall E (p : pth) S T,
-      path p ->
       sub E p (typ_pair S T) ->
       sub E (pth_proj1 p) S
   | sub_tfst : forall E (p : pth) S T,
-      path p ->
       sub E p (typ_tpair S T) ->
       sub E (pth_proj1 p) S
   | sub_snd : forall E (p : pth) S T,
-      path p ->
       sub E p (typ_pair S T) ->
       sub E (pth_proj2 p) (open_tp T (pth_proj1 p))
   | sub_tsnd : forall E (p : pth) S T,
-      path p ->
       sub E p (typ_tpair S T) ->
       sub E (typ_path_Snd p) (open_tp T (pth_proj1 p))
   | sub_bot : forall E T,
